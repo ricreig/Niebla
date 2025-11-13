@@ -54,17 +54,25 @@ require_once __DIR__ . '/config.php';
 $fogLib = null;
 $fogCandidates = [
   dirname(__DIR__, 2) . '/mmtj_fog/lib',
+  dirname(__DIR__, 3) . '/mmtj_fog/lib',
   dirname(__DIR__, 2) . '/mmtj_fog_unzip/lib',
+  dirname(__DIR__, 3) . '/mmtj_fog_unzip/lib',
 ];
 foreach ($fogCandidates as $candidate) {
-  if (is_dir($candidate)) {
-    $fogLib = $candidate;
+  $metarLib = rtrim($candidate, '/') . '/metar_multi.php';
+  if (is_file($metarLib)) {
+    $fogLib = rtrim($candidate, '/');
     break;
   }
 }
 if ($fogLib === null) {
-  http_response_code(500);
-  echo json_encode(['ok' => false, 'error' => 'fog_lib_missing'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  error_log('[departures] mmtj_fog library not found; checked: ' . implode(', ', $fogCandidates));
+  http_response_code(200);
+  echo json_encode([
+    'ok' => false,
+    'error' => 'fog_lib_missing',
+    'message' => 'No se encontró la librería meteorológica (mmtj_fog). Verifica la ruta en el servidor.',
+  ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
 require_once $fogLib . '/metar_multi.php';
