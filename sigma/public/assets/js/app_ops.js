@@ -60,6 +60,55 @@
     delete btnEl.dataset.originalHtml;
   }
 
+  function getNowToEodPlus1hUtc() {
+    // Use browser local time
+    const now = new Date();
+    const end = new Date(now);
+    end.setHours(23,59,59,999);
+    const plus1h = new Date(end.getTime() + 60*60*1000);
+    const toIsoMinute = (d)=> new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16)+':00Z';
+    return { fromUtc: toIsoMinute(now), toUtc: toIsoMinute(plus1h) };
+  }
+
+  function showInfoToast(message){
+    if(!message) return;
+    let container = document.getElementById('sigma-toast-container');
+    if(!container){
+      container = document.createElement('div');
+      container.id = 'sigma-toast-container';
+      container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+      document.body.appendChild(container);
+    }
+    const toastEl = document.createElement('div');
+    toastEl.className = 'toast align-items-center text-bg-secondary border-0';
+    toastEl.setAttribute('role','alert');
+    toastEl.setAttribute('aria-live','assertive');
+    toastEl.setAttribute('aria-atomic','true');
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+      </div>`;
+    container.appendChild(toastEl);
+    const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 5000 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', ()=>{ toast.dispose(); toastEl.remove(); });
+  }
+
+  let lastDateToastAt = 0;
+  function notifyDateRestriction(){
+    const values = [...fromEls, ...toEls].map(el=> (el && el.value) ? String(el.value) : '').filter(Boolean);
+    if(!values.length) return;
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+    const mismatch = values.some(v => v.slice(0,10) !== todayStr);
+    if(!mismatch) return;
+    const nowMs = Date.now();
+    if(nowMs - lastDateToastAt < 5000) return;
+    lastDateToastAt = nowMs;
+    showInfoToast('Vista restringida al día actual; histórico vía SQL/CSV');
+  }
+
   // === UTC helpers para inputs datetime-local ===
   function utcNowInputValue(){
     const d = new Date();
@@ -215,8 +264,11 @@
     return (icao && num) ? `${icao}${num}` : (f.icaoNumber || f.iataNumber || f.number || '—');
   }
 
-  async function loadAVSForDate(yyyy_mm_dd){
-    const url = `${API_BASE}avs_timetable.php?type=arrival&iata=${encodeURIComponent(IATA_AIRPORT)}&date=${encodeURIComponent(yyyy_mm_dd)}&ttl=60`;
+  async function loadAVSForDate(yyyy_mm_dd, rangeUtc){
+    let url = `${API_BASE}avs_timetable.php?type=arrival&iata=${encodeURIComponent(IATA_AIRPORT)}&date=${encodeURIComponent(yyyy_mm_dd)}&ttl=60`;
+    if(rangeUtc?.fromUtc && rangeUtc?.toUtc){
+      url += `&from=${encodeURIComponent(rangeUtc.fromUtc)}&to=${encodeURIComponent(rangeUtc.toUtc)}`;
+    }
     const j   = await jget(url);
 
     // backend normalizado -> {rows:[...]} o {ok:true,data:[...]}
@@ -308,26 +360,29 @@
 
   /* ===== Orquestador ===== */
   async function loadTimetable(){
-    // 1) fechas UTC
-    let dates = readDatesUTC();
-    if(dates.length===0){
-      const now = new Date();
-      dates = [ padDateUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))) ];
+    const rangeUtc = getNowToEodPlus1hUtc();
+    console.log('[sigma] timetable range', rangeUtc.fromUtc, rangeUtc.toUtc); // remove in production
+    const fromDateUtc = new Date(rangeUtc.fromUtc);
+    const toDateUtc = new Date(rangeUtc.toUtc);
+    let dates = eachDateInclusive(fromDateUtc, toDateUtc);
+    if(!dates.length){
+      dates = [padDateUTC(fromDateUtc)];
     }
 
+    // toasts si UI pide otro día
+    notifyDateRestriction();
+
     // 2) fetch por día
-    const chunks = await Promise.all(dates.map(loadAVSForDate));
+    const chunks = await Promise.all(dates.map(d => loadAVSForDate(d, rangeUtc)));
     let rows = chunks.flat();
 
     // 3) filtro horario por FROM/TO en UTC
-    const fUTC = parseInputAsUTC(firstValue(fromEls));
-    const tUTC = parseInputAsUTC(firstValue(toEls));
-    if(fUTC){
-      const fromMs = fUTC.getTime();
+    const fromMs = Date.parse(rangeUtc.fromUtc);
+    const toMs = Date.parse(rangeUtc.toUtc);
+    if(Number.isFinite(fromMs)){
       rows = rows.filter(r => r.ETA && Date.parse(r.ETA) >= fromMs);
     }
-    if(tUTC){
-      const toMs = tUTC.getTime();
+    if(Number.isFinite(toMs)){
       rows = rows.filter(r => r.ETA && Date.parse(r.ETA) <= toMs);
     }
 
