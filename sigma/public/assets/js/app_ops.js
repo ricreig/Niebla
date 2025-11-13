@@ -34,6 +34,7 @@
   let SORT_MODE = 'ETA'; // 'ETA' | 'SEC'
   const RMK_STORE = new Map(); // key -> {sec,alt,note,stsOverride}
   window._lastRows = [];
+  let REFRESHING = false;
 
   /* ===== Utils ===== */
   function jget(url, timeoutMs = 10000){
@@ -47,6 +48,17 @@
 
   function firstValue(elArr){ for(const el of elArr){ if(el && el.value) return el.value; } return ''; }
   function setAllText(els, txt){ els.forEach(el=>{ if(el) el.textContent = txt; }); }
+
+  function setBtnLoading(btnEl) {
+    btnEl.dataset.originalHtml = btnEl.innerHTML;
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Actualizando…';
+  }
+  function clearBtnLoading(btnEl) {
+    if (btnEl.dataset.originalHtml) btnEl.innerHTML = btnEl.dataset.originalHtml;
+    btnEl.disabled = false;
+    delete btnEl.dataset.originalHtml;
+  }
 
   // === UTC helpers para inputs datetime-local ===
   function utcNowInputValue(){
@@ -511,9 +523,20 @@ function updateStatsCard(rows){
   }
 
   /* ===== API pública ===== */
-  window.refresh = async function(){
+  function setLoading(flag){
+    updBtns.forEach(btn=>{
+      if(!btn) return;
+      btn.disabled = flag;
+      if(flag) btn.setAttribute('aria-busy','true'); else btn.removeAttribute('aria-busy');
+    });
+  }
+
+  window.refresh = async function(triggerBtn){
+    const btnEl = (triggerBtn instanceof HTMLElement) ? triggerBtn : null;
+    if(btnEl && btnEl.disabled) return;
     if(REFRESHING) return;
     REFRESHING = true;
+    if(btnEl) setBtnLoading(btnEl);
     setLoading(true);
     try{
       const rows = await loadTimetable();
@@ -524,6 +547,7 @@ function updateStatsCard(rows){
     }finally{
       REFRESHING = false;
       setLoading(false);
+      if(btnEl) clearBtnLoading(btnEl);
     }
   };
   window.toggleSort = function(){
@@ -548,7 +572,11 @@ function updateStatsCard(rows){
     const nowUTC = utcNowInputValue();
     fromEls.forEach(el=>{ if(el && !el.value) el.value = nowUTC; });
 
-    updBtns.forEach(b=> b?.addEventListener('click', window.refresh));
+    updBtns.forEach(b=> b?.addEventListener('click', ev=>{
+      const btn = ev.currentTarget;
+      if(!btn || btn.disabled) return;
+      window.refresh(btn);
+    }));
     statusMenus.forEach(m=> m.addEventListener('change', window.refresh));
     colMenus.forEach(m=> m.addEventListener('change', applyColumnToggles));
     tzBtns.forEach(b=> b?.addEventListener('click', ()=>{
@@ -562,13 +590,3 @@ function updateStatsCard(rows){
     window.refresh();
   });
 })();
-  let REFRESHING = false;
-
-  function setLoading(flag){
-    updBtns.forEach(btn=>{
-      if(!btn) return;
-      btn.disabled = flag;
-      btn.classList.toggle('is-loading', flag);
-      if(flag) btn.setAttribute('aria-busy','true'); else btn.removeAttribute('aria-busy');
-    });
-  }

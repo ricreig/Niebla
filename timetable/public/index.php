@@ -3,7 +3,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JRTIJ | MMTJ · Timetable Operativo</title>
 <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="metar.css">
+<style>
+.spinner-border{display:inline-block;width:1rem;height:1rem;border:0.15em solid currentColor;border-right-color:transparent;border-radius:50%;animation:spinner-border .75s linear infinite;vertical-align:-0.125em}
+.spinner-border-sm{width:0.9rem;height:0.9rem;border-width:0.15em}
+.me-2{margin-right:0.5rem}
+@keyframes spinner-border{to{transform:rotate(360deg);}}
+</style>
 <body>
+<div style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+</div>
 <header class="topbar">
   <h1>JRTIJ | MMTJ · Timetable Operativo</h1>
   <div class="top-actions">

@@ -17,16 +17,23 @@ const MODAL={root:null,title:null,info:null,metar:null,taf:null,metarSource:null
 
 function utcNowISO(){const n=new Date();return `${n.getUTCFullYear()}-${String(n.getUTCMonth()+1).padStart(2,'0')}-${String(n.getUTCDate()).padStart(2,'0')}T${String(n.getUTCHours()).padStart(2,'0')}:${String(n.getUTCMinutes()).padStart(2,'0')}Z`;}
 
-function setLoading(flag){
+function setLoading(flag, activeBtn){
   isLoading=flag;
   const targets=[document.getElementById('run'),document.getElementById('applyStatus')];
   targets.forEach(btn=>{
     if(!btn) return;
     btn.disabled=flag;
-    btn.classList.toggle('is-loading',flag);
     if(flag) btn.setAttribute('aria-busy','true'); else btn.removeAttribute('aria-busy');
+    if(btn!==activeBtn){
+      btn.classList.toggle('is-loading',flag);
+    }else if(!flag){
+      btn.classList.remove('is-loading');
+    }
   });
 }
+
+function setBtnLoading(btnEl) { btnEl.dataset.originalHtml = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Actualizando…'; }
+function clearBtnLoading(btnEl) { if (btnEl.dataset.originalHtml) btnEl.innerHTML = btnEl.dataset.originalHtml; btnEl.disabled = false; delete btnEl.dataset.originalHtml; }
 
 function loadSavedStatuses(){
   try{
@@ -172,12 +179,20 @@ function initForm(){
     saveStatuses();
     render();
   });
-  document.getElementById('applyStatus').addEventListener('click',()=>execute());
+  document.getElementById('applyStatus').addEventListener('click',e=>{
+    const btn=e.currentTarget;
+    if(!btn || btn.disabled) return;
+    execute(btn);
+  });
 
   syncStatusCheckboxes();
 
   // Botones
-  document.getElementById('run').addEventListener('click',()=>execute());
+  document.getElementById('run').addEventListener('click',e=>{
+    const btn=e.currentTarget;
+    if(!btn || btn.disabled) return;
+    execute(btn);
+  });
   document.getElementById('csvBtn').addEventListener('click',()=>downloadCSV());
   document.getElementById('tzToggle').addEventListener('click',()=>toggleTZ());
   document.getElementById('quickPrev2h').addEventListener('click',()=>quickShift(-2));
@@ -230,11 +245,14 @@ function buildQuery(){
   return '../api/fr24.php?'+p.toString();
 }
 
-async function execute(){
+async function execute(triggerBtn){
+  const btnEl=(triggerBtn instanceof HTMLElement)?triggerBtn:null;
+  if(btnEl && btnEl.disabled) return;
   if(isLoading) return;
   const tb=document.querySelector('#grid tbody');
   tb.innerHTML='<tr><td colspan="10">Consultando…</td></tr>';
-  setLoading(true);
+  if(btnEl) setBtnLoading(btnEl);
+  setLoading(true,btnEl);
   try{
     const res=await fetch(buildQuery(),{cache:'no-store'});
     const j=await res.json();
@@ -245,7 +263,8 @@ async function execute(){
   }catch(err){
     tb.innerHTML=`<tr><td colspan="10">Fallo: ${String(err)}</td></tr>`;
   }finally{
-    setLoading(false);
+    setLoading(false,btnEl);
+    if(btnEl) clearBtnLoading(btnEl);
   }
 }
 
