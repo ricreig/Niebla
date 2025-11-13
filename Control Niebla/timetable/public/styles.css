@@ -1,0 +1,96 @@
+:root{
+  --bg-900:#0b1220; --bg-800:#0f172a; --fg-100:#e6edf3; --fg-400:#9aa4b2; --ln-700:#1f2937; --ac-500:#4f46e5;
+  --bg:var(--bg-900); --panel:var(--bg-800); --fg:var(--fg-100); --muted:var(--fg-400); --line:var(--ln-700); --primary:var(--ac-500);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:14px ui-sans-serif,system-ui,Segoe UI,Roboto,Ubuntu,Arial}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:color-mix(in oklab, var(--bg) 85%, black);backdrop-filter:saturate(140%) blur(6px)}
+.topbar h1{font-size:16px;margin:0}
+.top-actions{display:flex;gap:8px;align-items:center}
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+.btn{border:1px solid var(--line);background:color-mix(in oklab, var(--panel) 92%, black);color:var(--fg);padding:8px 12px;border-radius:8px;cursor:pointer}
+.btn.small{padding:6px 10px;font-size:12px}
+.btn.pill{border-radius:999px}
+.btn.primary{background:var(--primary);border-color:transparent}
+.btn.line{background:transparent}
+.btn.is-loading{position:relative;color:transparent!important;pointer-events:none}
+.btn.is-loading::after{content:"";position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+.wx-modal-open{overflow:hidden}
+.inp{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:color-mix(in oklab, var(--panel) 86%, black);color:var(--fg)}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg-btn{flex:1;padding:8px 10px;border:0;background:transparent;color:var(--fg);cursor:pointer}
+.seg-btn.is-active{background:color-mix(in oklab, var(--panel) 80%, black)}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.form-grid{margin:12px 0}
+.center{display:flex;align-items:end}
+.full{width:100%}
+.btn-grid.a4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.dropdown{position:relative;display:block;margin:8px 0}
+.dropdown .menu{position:absolute;top:calc(100% + 6px);left:0;min-width:320px;background:color-mix(in oklab, var(--panel) 92%, black);border:1px solid var(--line);border-radius:12px;padding:12px;display:none;z-index:20}
+.dropdown.open .menu{display:block}
+.menu .grid-3x3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.menu label{display:inline-flex;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#0b1528}
+
+/* Reloj */
+.utc-clock{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:140px;height:38px}
+#tzLabel{font-weight:700}
+
+/* Counters */
+.counters{display:grid;gap:10px;margin:10px 0}
+.counters.a8{grid-template-columns:repeat(8,1fr)}
+.counters .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;transition:background .2s ease,border-color .2s ease}
+.counters .card.card-clickable{cursor:pointer}
+.counters .card.card-clickable:hover{background:color-mix(in oklab, var(--panel) 70%, black)}
+.counters .card.is-active{border-color:var(--primary);box-shadow:0 0 0 1px color-mix(in oklab,var(--primary) 60%, white 40%)}
+.counters .card b{font-size:15px}
+.counters .card small{color:var(--muted)}
+
+/* Tabla */
+.table-wrap{margin:10px 0;border:1px solid var(--line);border-radius:12px;overflow:auto;background:var(--panel)}
+table{width:100%;border-collapse:collapse}
+thead th{position:sticky;top:0;background:color-mix(in oklab, var(--panel) 80%, black);border-bottom:1px solid var(--line);text-align:left;padding:10px;font-weight:600}
+tbody td{padding:10px;border-top:1px solid var(--line);white-space:nowrap}
+
+/* Ocultar columna (aplica th y td) */
+th.col-hide, td.col-hide{display:none}
+/* Por defecto ocultas: no solicitadas */
+th.col-airline, td.col-airline,
+th.col-sched,  td.col-sched,
+th.col-act,    td.col-act,
+th.col-delay,  td.col-delay,
+th.col-gate,   td.col-gate{display:none}
+
+/* Badges status */
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid transparent}
+.status-scheduled{background:#102646;color:#86b9ff}
+.status-active{background:#0c3227;color:#22d3a6}
+.status-landed{background:#1b2a1b;color:#9fbda7}
+.status-cancelled{background:#3a0a0a;color:#f87171}
+.status-diverted{background:#3a2a0a;color:#fbbf24}
+
+/* Weather widgets */
+.wx-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:color-mix(in oklab, var(--panel) 80%, black);color:var(--fg);cursor:pointer;font-size:12px}
+.wx-chip:hover,.wx-chip:focus{background:color-mix(in oklab, var(--panel) 70%, black);outline:none}
+.wx-chip:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.wx-chip-frozen{border-color:#fbbf24;box-shadow:0 0 0 1px rgba(251,191,36,0.4)}
+
+.wx-modal{position:fixed;inset:0;background:rgba(7,11,20,0.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:200}
+.wx-modal__content{background:color-mix(in oklab, var(--panel) 92%, black);border:1px solid var(--line);border-radius:18px;padding:20px;width:min(640px,90vw);max-height:90vh;overflow:auto;box-shadow:0 18px 40px rgba(0,0,0,0.35)}
+.wx-modal__header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.wx-modal__title{font-size:16px;font-weight:600;margin:0}
+.wx-modal__close{background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--fg);width:32px;height:32px;cursor:pointer}
+.wx-modal__info{font-size:13px;color:var(--muted);margin-bottom:12px}
+.wx-modal__grid{display:grid;gap:16px}
+.wx-modal__grid section h3{margin:0 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.wx-modal__grid pre{background:color-mix(in oklab, var(--panel) 70%, black);padding:10px;border-radius:10px;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.35;max-height:200px;overflow:auto}
+.wx-modal__source{margin-top:6px;font-size:12px;color:var(--muted)}
+
+/* ETA/ETD color por demora */
+.t-neutral{color:var(--fg)}
+.t-early{color:#22c55e}
+.t-late{color:#ef4444}
+
+/* Fix ancho fecha/hora */
+.inp.dt{width:100%;max-width:100%}
