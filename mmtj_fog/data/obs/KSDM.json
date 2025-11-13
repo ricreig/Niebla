@@ -1,0 +1,13 @@
+{
+    "icao": "KSDM",
+    "ts": 1763013180,
+    "raw": "METAR KSDM 130553Z AUTO 17003KT 7SM CLR 17/15 A3007 RMK AO2 SLP176 T01670150 10194 20161 51007",
+    "vis_sm": 7,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 170,
+    "wind_kt": 3,
+    "rvr": [],
+    "source": "AWC"
+}

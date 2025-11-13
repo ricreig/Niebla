@@ -1,0 +1,11 @@
+# --- front controller de SIGMA ---
+DirectoryIndex index.html
+RewriteEngine On
+
+# Sirve archivos y directorios reales tal cual (css, js, imgs, fuentes, etc.)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Todo lo demás entra por index.php (ruteo de la app)
+RewriteRule ^ index.html [L]

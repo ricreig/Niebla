@@ -1,0 +1,207 @@
+@font-face{
+  font-family:"ICAORWYID";
+  src:url("../ICAORWYID.ttf") format("truetype");
+  font-display:swap;
+}
+body{ padding:16px; }
+.sticky-rwy{ position:sticky; top:8px; z-index:50; }
+
+/* === Defaults acordados (idénticos a producción) === */
+.rwy {
+  --rwy-id-size: 50px;
+  --rwy-id-offset-y: -9px;
+  --id-left-x: 44px;
+  --id-right-x: 43px;
+  --id-left-y: 16px;
+  --id-right-y: 1px;
+  --rwy-pill-top: -58px;
+  --rwy-pill-mid: 45px;
+  --track-y: -1px;
+  --track-th: 2px;
+  --track-dash: 40px;
+  --track-gap: 14px;
+  --p-rot: 90deg;
+  --p-width: 35px;
+  --p-row-gap: 6px;
+  --p-len: 66px;
+  --p-bar: 6px;
+  --p-off-y: 0px;
+  --p-left-x: 0px;
+  --p-right-x: 0px;
+  --tk-font: 11px;
+  --tk-px: 9px;
+  --tk-py: 2px;
+  --tk-off-x: 0px;
+  --tk-off-y: 20px;
+  --lvp-top: -15px;
+  --lvp-right: 250px;
+  --lvp-font: 8px;
+  --lvp-px: 6px;
+  --lvp-py: 2px;
+  --ban-top: 10px;
+  --ban-left: 0px;
+  --ban-font: 13px;
+  --pill-font: 10px;
+  --pill-px: 5px;
+  --pill-py: 2px;
+
+  position:relative; padding:12px; border-radius:14px; isolation:isolate;
+}
+
+/* --- A. Más aire arriba/abajo y radio más limpio --- */
+.rwy{
+  /* grosor/alto del “cassette” de pista */
+  --rwy-h: 82px;                 /* antes 82px */
+  height: var(--rwy-h);
+  /* aire adicional */
+  padding-block: 28px;           /* antes 24px */
+  padding-inline: 60px;
+  border-radius: 16px;
+  margin-block: 16px;
+}
+
+/* Línea central: respeta el nuevo padding */
+.rwy-track{
+  position:absolute; left:26px; right:26px;
+  top:calc(50% + var(--track-y));
+  height:var(--track-th);
+  background:repeating-linear-gradient(
+    90deg,
+    rgba(255,255,255,.22) 0 var(--track-dash),
+    transparent var(--track-dash) calc(var(--track-dash) + var(--track-gap))
+  );
+  border-radius:2px; z-index:1;
+}
+
+/* --- B. Pills con colores forzados y Z orden correcto --- */
+.rwy-badges{ position:absolute; display:inline-flex!important; gap:6px; z-index:4; }
+.rwy-badges.top.left   { left:26px;  top:calc(50% + var(--rwy-pill-top)); }
+.rwy-badges.top.right  { right:26px; top:calc(50% + var(--rwy-pill-top)); }
+.rwy-badges.mid.left   { left:26px;  top:calc(50% + var(--rwy-pill-mid)); }
+.rwy-badges.mid.right  { right:26px; top:calc(50% + var(--rwy-pill-mid)); }
+
+/* Override a Bootstrap .badge para que siempre se “pinten” aquí */
+.rwy .badge{
+  font-weight:600;
+  font-size:var(--pill-font);
+  padding:var(--pill-py) var(--pill-px);
+  border-radius:14px;
+  background:rgba(255,255,255,.08) !important;
+  color:var(--bs-body-color) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.rwy .badge.badge--ok  { color:var(--bs-body-color) !important; }
+.rwy .badge.badge--ifr { color:#8ab4ff !important; }   /* IFR = azul claro */
+.rwy .badge.badge--low { color:var(--bs-danger) !important; } /* Bajo mínimos */
+
+
+
+/* --- F. Ocultar la leyenda de “Escenario:” en el simulador --- */
+.sim-scn{ display:none !important; }
+
+.rwy.card{ box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+
+
+/* === Pianos (llaves de umbral) === */
+.rwy::before,
+.rwy::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  width:var(--p-len);
+  height:var(--p-width);
+  opacity:.45;
+  background:repeating-linear-gradient(
+     90deg,
+     rgba(255,255,255,.38) 0 var(--p-bar),
+     transparent var(--p-bar) calc(var(--p-bar) + var(--p-row-gap))
+  );
+  border-radius:2px;
+  z-index:0;
+  /* aquí estaba el problema: usar la var dentro de rotate + compensar el 50% */
+  transform:translateY(calc(-50% + var(--p-off-y))) rotate(var(--p-rot));
+}
+.rwy::before{ left:var(--p-left-x); }
+.rwy::after{
+  right:var(--p-right-x);
+  /* espejo del bloque derecho */
+  transform:translateY(calc(-50% + var(--p-off-y))) rotate(var(--p-rot)) scaleX(-1);
+}
+/* Designadores: corrige el espejo de 27 */
+.rwy-id{
+  position: absolute;
+  top: 50%;
+  font-family: "ICAORWYID", system-ui, sans-serif;
+  font-size: var(--rwy-id-size);
+  line-height: 1;
+  color: var(--bs-secondary-color);
+  /* usa longhands para no romper el translate */
+  rotate: 90deg;                                /* izquierda por defecto */
+  translate: 0 calc(-50% + var(--rwy-id-offset-y));
+  z-index: 3;
+}
+.rwy-id.left  { left:  var(--id-left-x);  translate: 0 calc(-50% + var(--rwy-id-offset-y) + var(--id-left-y)); }
+.rwy-id.right { right: var(--id-right-x); rotate: -90deg; translate: 0 calc(-50% + var(--rwy-id-offset-y) + var(--id-right-y)); }
+
+.rwy-id.danger{ color:var(--bs-danger); }
+
+
+/* Takeoff VIS */
+.rwy-tk{
+  position:absolute; top:calc(50% + var(--tk-off-y)); left:calc(50% + var(--tk-off-x));
+  transform:translate(-50%,-50%); font-weight:700; font-size:var(--tk-font);
+  padding:var(--tk-py) var(--tk-px); border-radius:14px; background:rgba(255,255,255,.08); z-index:3;
+}
+.rwy-tk.ok{ color:var(--bs-body-color); }
+.rwy-tk.warn{ color:var(--bs-warning); }
+.rwy-tk.crit{ color:var(--bs-danger); }
+
+/* Banner */
+.rwy-banner{
+  position:absolute; top:var(--ban-top); left:calc(50% + var(--ban-left));
+  transform:translateX(-50%); font-weight:800; font-size:var(--ban-font); color:var(--bs-pink); z-index:5;
+}
+
+/* LVP */
+.rwy-lvp{
+  position:absolute;
+  top: var(--lvp-top, -20px);
+  left: 50%;
+  transform: translateX(-50%);
+  /* anula posicionamiento previo por derecha */
+  right: auto;
+
+  background:#00ff8c;
+  color:#000;
+  font-weight:800;
+  font-size: var(--lvp-font,10px);
+  padding: var(--lvp-py,2px) var(--lvp-px,6px);
+  border-radius:12px;
+  z-index:6;
+}
+
+/* Wrapping */
+#metar,#stats{ white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; margin:0; }
+
+/* Sliders y caja numérica (táctil) */
+.ctrl{
+  display:grid;
+  grid-template-columns:1fr 120px;
+  gap:.75rem; align-items:center; margin:.75rem 0;
+}
+.ctrl > label{ margin:0; }
+.ctrl input[type="range"]{
+  -webkit-appearance:none; height:14px; border-radius:999px;
+  background:rgba(255,255,255,.10);
+}
+.ctrl input[type="range"]::-webkit-slider-runnable-track{ height:14px; }
+.ctrl input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:26px; height:26px; border-radius:50%;
+  background:var(--bs-primary); box-shadow:0 0 0 3px rgba(13,110,253,.18);
+  margin-top:-6px;
+}
+.ctrl .num{
+  width:100%; background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.12); border-radius:.45rem;
+  padding:.4rem .55rem; text-align:right; font-variant-numeric:tabular-nums;
+}

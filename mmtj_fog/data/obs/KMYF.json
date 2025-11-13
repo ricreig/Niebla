@@ -1,0 +1,13 @@
+{
+    "icao": "KMYF",
+    "ts": 1763013180,
+    "raw": "METAR KMYF 130553Z AUTO 03003KT 9SM CLR 17/14 A3006 RMK AO2 SLP174 T01720144 10206 20167 50004 $",
+    "vis_sm": 9,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 30,
+    "wind_kt": 3,
+    "rvr": [],
+    "source": "AWC"
+}

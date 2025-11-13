@@ -1,0 +1,13 @@
+{
+    "icao": "MMTJ",
+    "ts": 1763016060,
+    "raw": "METAR MMTJ 130641Z 11003KT 6SM OVC160 18/16 A3009 RMK 8/07/ HZY",
+    "vis_sm": 6,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 110,
+    "wind_kt": 3,
+    "rvr": [],
+    "source": "AWC"
+}
