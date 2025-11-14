@@ -204,6 +204,10 @@ function initForm(){
   startClock();
 
   render();
+
+  // Perform an initial fetch so the grid is populated on page load without
+  // requiring the user to press the refresh button manually.
+  execute();
 }
 
 function setupDropdown(rootId,btnId,menuId){
