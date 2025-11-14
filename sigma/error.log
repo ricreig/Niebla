@@ -1,0 +1,109 @@
+[08-Nov-2025 01:47:02 UTC] Clean[13-Nov-2025 11:13:37 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 11:13:37 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 11:13:37 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 11:13:37 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 11:47:38 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 11:47:38 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 11:47:38 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 11:47:40 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 11:47:52 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 11:47:52 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 11:47:52 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 11:47:54 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 11:52:38 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 11:52:38 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 11:52:38 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 11:52:40 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 17:18:24 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 17:18:24 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 17:18:24 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 17:18:27 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 19:26:08 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 19:26:08 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 19:26:08 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 19:26:11 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 20:25:01 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 20:25:01 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 20:25:01 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 20:25:01 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 20:25:02 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 20:25:02 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 20:25:02 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 20:25:02 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 20:41:00 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 20:41:00 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 20:41:00 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 20:41:02 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 21:13:50 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 21:13:50 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 21:13:50 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 21:13:57 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDERR" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_departures.php:61
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_departures.php on line 61
+[13-Nov-2025 21:31:45 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 21:31:45 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 21:31:45 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 21:31:45 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[13-Nov-2025 21:31:47 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[13-Nov-2025 21:31:47 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[13-Nov-2025 21:31:47 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[13-Nov-2025 21:31:47 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[14-Nov-2025 00:25:04 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[14-Nov-2025 00:25:04 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[14-Nov-2025 00:25:04 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[14-Nov-2025 00:25:04 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:153
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 153
+[14-Nov-2025 00:33:47 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[14-Nov-2025 00:33:47 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[14-Nov-2025 00:33:47 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[14-Nov-2025 00:33:47 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:155
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 155
+[14-Nov-2025 00:33:55 UTC] PHP Warning:  Constant FR24_API_TOKEN already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 6
+[14-Nov-2025 00:33:55 UTC] PHP Warning:  Constant FR24_API_BASE already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 7
+[14-Nov-2025 00:33:55 UTC] PHP Warning:  Constant FR24_API_VERSION already defined in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/config.php on line 8
+[14-Nov-2025 00:33:57 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:155
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 155
+[14-Nov-2025 00:58:33 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "STDOUT" in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php:48
+Stack trace:
+#0 {main}
+  thrown in /home/u695435470/domains/atiscsl.esy.es/public_html/sigma/api/update_schedule.php on line 48

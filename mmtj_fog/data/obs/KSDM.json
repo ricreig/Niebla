@@ -1,0 +1,13 @@
+{
+    "icao": "KSDM",
+    "ts": 1763077980,
+    "raw": "METAR KSDM 132353Z VRB03KT 10SM CLR 21/11 A3000 RMK AO2 SLP158 T02060106 10278 20206 56003",
+    "vis_sm": 10,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 0,
+    "wind_kt": 3,
+    "rvr": [],
+    "source": "AWC"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "MMTJ FRI",
+  "short_name": "MMTJ FRI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1422",
+  "theme_color": "#0d1422",
+}

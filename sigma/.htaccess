@@ -1,0 +1,38 @@
+
+# SIGMA root .htaccess
+Options -Indexes
+AddDefaultCharset UTF-8
+
+# PHP error logging
+php_flag log_errors on
+php_value error_reporting 32767
+php_value error_log "/home/u695435470/domains/atiscsl.esy.es/public_html/sigma/error.log"
+
+# Security headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "no-referrer-when-downgrade"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
+</IfModule>
+
+# Cache static assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+# Allow CORS for local API probes only
+<FilesMatch "\.(php)$">
+  <IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+  </IfModule>
+</FilesMatch>

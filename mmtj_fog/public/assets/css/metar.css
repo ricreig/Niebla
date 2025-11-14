@@ -1,0 +1,27 @@
+:root {
+  --bg-900: #0b1220; --bg-800: #111a2e; --bg-700: #17223a;
+  --fg-100: #e6edf7; --fg-300: #c8d3e6;
+  --primary-500: #1e90ff; --primary-600: #177ae0;
+  --accent-500: #2cd3c7; --accent-600: #23bdb2;
+  --warn-400: #ffb878; --warn-500: #ffa454;
+  --border-300: #24314d; --focus: #2cd3c7; --shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+html, body { height:100%; background: radial-gradient(1000px 600px at 20% 0%, var(--bg-800) 0%, var(--bg-900) 60%), linear-gradient(180deg, var(--bg-900), var(--bg-900)); color: var(--fg-100); }
+.card, .navbar, .table, .alert, .modal-content { background: linear-gradient(180deg, var(--bg-800), var(--bg-700)); border: 1px solid var(--border-300); color: var(--fg-100); }
+.form-control, .form-select { background-color: var(--bg-800); border: 1px solid var(--border-300); color: var(--fg-100); border-radius: 10px; }
+.form-control:focus, .form-select:focus { background-color: var(--bg-700); border-color: var(--focus); box-shadow: 0 0 0 .2rem rgba(44,211,199,.15); }
+.btn { border-radius: 10px; font-weight: 600; }
+.btn-primary { background: linear-gradient(180deg, var(--primary-500), var(--primary-600)); border: 1px solid var(--primary-600); }
+.btn-accent { background: linear-gradient(180deg, var(--accent-500), var(--accent-600)); border: 1px solid var(--accent-600); color: #063239; }
+.btn-warning { background: linear-gradient(180deg, var(--warn-400), var(--warn-500)); border: 1px solid var(--warn-500); color: #3a2300; }
+.text-soft { color: var(--fg-300); }
+.shadow-soft { box-shadow: var(--shadow); }
+thead.position-sticky th{ position: sticky; top: 0; z-index: 5; background: linear-gradient(180deg, var(--bg-800), var(--bg-700)); }
+.table-hover tbody tr:hover { filter: brightness(1.08); }
+.dropdown-menu { z-index: 2000; }
+.badge-active { color:#fff; background-color:#198754; border:2px solid #0a5c2b; box-shadow:0 0 .45rem rgba(25,135,84,.9); }
+.navbar{padding-top:.25rem;padding-bottom:.25rem;}
+.container-fluid{padding-left:.5rem;padding-right:.5rem;}
+/* densidad */
+.table-sm>:not(caption)>*>*{padding:.30rem .50rem;}
+.card .card-body{padding:.55rem .65rem;}

@@ -1,0 +1,13 @@
+{
+    "icao": "KNRS",
+    "ts": 1763077980,
+    "raw": "METAR KNRS 132353Z 00000KT 10SM BKN070 BKN200 20/16 A3000 RMK AO2 SLP159 T02000161 10228 20194 56012 $",
+    "vis_sm": 10,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 0,
+    "wind_kt": 0,
+    "rvr": [],
+    "source": "AWC"
+}

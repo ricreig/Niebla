@@ -1,0 +1,13 @@
+{
+    "icao": "KSEE",
+    "ts": 1763077620,
+    "raw": "METAR KSEE 132347Z 27011KT 10SM SKC 26/09 A3000",
+    "vis_sm": 10,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 270,
+    "wind_kt": 11,
+    "rvr": [],
+    "source": "AWC"
+}

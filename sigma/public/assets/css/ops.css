@@ -1,0 +1,60 @@
+/* ===== ETA compacto ===== */
+.cell-eta{line-height:1.05}
+.cell-eta .d{display:block;font-size:.78rem;color:#93a3b3}
+.cell-eta .t{display:block;font-weight:600}
+@media (orientation:landscape){
+  .cell-eta .d{display:inline;margin-right:.35rem}
+  .cell-eta .t{display:inline}
+}
+
+/* ===== ID mono ===== */
+.cell-id{font-family:ui-monospace,Menlo,Consolas,monospace}
+
+/* ===== EET por puntualidad (prioridad alta en celdas) ===== */
+table#grid td.eet-early  { color:#22c55e !important; }
+table#grid td.eet-ontime { color:#e5e7eb !important; }
+table#grid td.eet-late   { color:#fca5a5 !important; }
+table#grid td.eet-done   { color:#9ca3af !important; }
+
+/* ===== Badges STS 6 letras ===== */
+.badge-sts{font-weight:700;border-radius:.5rem;padding:.18rem .48rem;font-size:.78rem}
+.sts-LANDED {background:#052e16;color:#86efac;border:1px solid #065f46}   /* verde apagado */
+.sts-SCHEDL {background:#1e293b;color:#93c5fd;border:1px solid #1d4ed8}
+.sts-ENROUTE{background:#052e16;color:#a7f3d0;border:1px solid #10b981}
+.sts-DELAYED{background:#3b1d06;color:#fdba74;border:1px solid #f59e0b}
+.sts-ALTERN {background:#3b1d06;color:#fdba74;border:1px solid #f59e0b}
+.sts-CANCLD {background:#3f0b13;color:#fecaca;border:1px solid #dc2626}
+.sts-UNKNW  {background:#3f3f46;color:#e4e4e7;border:1px solid #71717a}
+
+/* Taxi flights: active flights without scheduled arrival (STA).  Reuse the en-route
+   color scheme for taxiing aircraft. */
+.sts-TAXI   {background:#052e16;color:#a7f3d0;border:1px solid #10b981}
+
+/* ===== Toolbar ===== */
+.dt-field{width:14rem}
+#utcClock{font-variant-numeric:tabular-nums}
+#btnTZ{line-height:1;padding:.375rem .5rem} /* mismo alto que el pill */
+
+/* ===== Lista de stats ===== */
+.stats-list{font-size:.92rem;line-height:1.1}
+.stats-list .item{display:flex;justify-content:space-between;gap:.75rem;white-space:nowrap}
+.stats-list .label{opacity:.85}
+.stats-list .val{font-variant-numeric:tabular-nums}
+@media (min-width:992px){.stats-list{font-size:.95rem}}
+@media (max-width:991.98px){.stats-list{font-size:.9rem}}
+
+/* ===== TAF bloque: sin afectar layout ===== */
+.taf-block{
+  display:block;white-space:pre-wrap;overflow:auto;line-height:1.2;min-height:0;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;
+}
+
+/* ===== Divisor fino entre título y contenido ===== */
+.cardtitle{
+  display:block;padding-bottom:.50rem;margin-bottom:.50rem;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+/* ===== FRI badge con decimales ===== */
+.badge-fri{min-width:2.8rem;font-variant-numeric:tabular-nums}

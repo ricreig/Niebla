@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es" data-bs-theme="dark">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=0.7, viewport-fit=cover">
+	<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MMTJ SIGMA_v1">
+<!-- Tinte de barras en navegador -->
+<meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0d1422">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+
+  <title>SIGMA · TIJ/MMTJ</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Estilos del sitio -->
+  <link href="./assets/css/styles.css" rel="stylesheet">
+  <link href="./assets/css/ops.css" rel="stylesheet">
+  <link href="./assets/css/ui.css" rel="stylesheet">
+  <link href="./assets/css/metar.css" rel="stylesheet">
+  <link href="./assets/css/risk.css" rel="stylesheet">
+  <link href="./assets/css/runway.css" rel="stylesheet">
+  <link rel="preload" href="./assets/ICAORWYID.ttf" as="font" type="font/ttf" crossorigin>
+</head>
+<body>
+<div class="container-fluid p-2">
+
+  <!-- HEADER / TOOLBAR -->
+  <header class="mb-2">
+    <!-- Línea 1: Título (xs y md+) -->
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-md">
+        <strong class="h5 m-0">SIGMA · Gestión de Mínimos y Baja Visibilidad · TIJ/MMTJ</strong>
+      </div>
+      <!-- En horizontal: reloj + toggle a la derecha -->
+      <div class="col-12 col-md-auto d-none d-md-flex justify-content-end align-items-center gap-2">
+        <span id="utcClock" class="badge rounded-pill text-bg-secondary">UTC 00:00:00</span>
+        <button id="btnTZ" class="btn btn-sm btn-outline-secondary">UTC→LCL</button>
+      </div>
+    </div>
+
+    <!-- CONTROLES – VERTICAL (xs): dos líneas exactas -->
+    <div class="d-block d-md-none mt-2">
+      <div class="row g-2 align-items-center">
+        <!-- Línea 2: From | Reloj | Toggle -->
+        <div class="small col-6">
+          <label class="text-muted small mb-0">From</label>
+          <input id="dtFrom" type="datetime-local" class="small form-control form-control-sm dt-field">
+        </div>
+        <div class="col-3">
+          <label class="text-muted small mb-1 d-block">&nbsp;</label>
+          <span id="utcClock_m" class="badge rounded-pill text-bg-secondary w-100 text-center">[UTC 00:00:00]</span>
+        </div>
+        <div class="col-3">
+          <label class="text-muted small mb-1 d-block">&nbsp;</label>
+          <button id="btnTZ_m" class="btn btn-sm btn-outline-secondary w-100">UTC→LCL</button>
+        </div>
+        <!-- Línea 3: To | Update | Filtro1 | Filtro2 -->
+        <div class="small col-6">
+          <span class="text-muted small mb-0">To</span>
+          <input id="dtTo" type="datetime-local" class="small form-control form-control-sm dt-field">
+        </div>
+        <div class="col-2">
+          <button id="btnApply" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>UPD</button>
+        </div>
+        <div class="col-2">
+          <label class="text-muted small mb-1 d-block">&nbsp;</label>
+          <div class="btn-group w-100">
+<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
+        data-bs-toggle="dropdown"
+        data-bs-auto-close="outside">STS</button>
+<div id="statusFilters" class="dropdown-menu dropdown-menu-dark p-2 small">
+  <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
+  <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
+  <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
+  <label class="dropdown-item"><input type="checkbox" value="DELAYED" data-sts="DELAYED" checked> Delayed</label>
+  <label class="dropdown-item"><input type="checkbox" value="CANCLD"  data-sts="CANCLD"  checked> Canceled</label>
+  <label class="dropdown-item"><input type="checkbox" value="ALTERN"  data-sts="ALTERN"  checked> Diverted</label>
+  <label class="dropdown-item"><input type="checkbox" value="UNKNW"   data-sts="UNKNW"   checked> Unknown</label>
+      <label class="dropdown-item"><input type="checkbox" value="TAXI"   data-sts="TAXI"   checked> Taxi</label>
+</div>
+          </div>
+        </div>
+        <div class="col-2">
+          <label class="text-muted small mb-1 d-block">&nbsp;</label>
+          <div class="btn-group w-100">
+<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
+        data-bs-toggle="dropdown"
+        data-bs-auto-close="outside">COL</button>
+<div id="colToggles" class="dropdown-menu dropdown-menu-dark p-2 small">
+  <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
+  <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
+  <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
+  <label class="dropdown-item"><input type="checkbox" value="FRI" checked> FRI</label>
+  <label class="dropdown-item"><input type="checkbox" value="EET" checked> EET</label>
+  <label class="dropdown-item"><input type="checkbox" value="DLY" checked> DLY</label>
+  <label class="dropdown-item"><input type="checkbox" value="STS" checked> STS</label>
+  <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLES – HORIZONTAL (md+): una sola línea 3-3-2-2-2 -->
+<div class="d-none d-md-block mt-2">
+  <div class="row g-2 align-items-center">
+    <div class="col-md-3 d-flex align-items-center gap-2">
+      <label class="text-muted small mb-0">From</label>
+      <input id="dtFrom_md" type="datetime-local" class="form-control form-control-sm dt-field">
+    </div>
+
+    <div class="col-md-3 d-flex align-items-center gap-2">
+      <label class="text-muted small mb-0">To</label>
+      <input id="dtTo_md" type="datetime-local" class="form-control form-control-sm dt-field">
+    </div>
+
+    <div class="col-md-2">
+      <button id="btnApply_md" class="btn btn-sm btn-outline-secondary w-100">
+        <i class="bi bi-arrow-repeat me-1"></i>UPD
+      </button>
+    </div>
+
+    <div class="col-md-2">
+      <div class="btn-group w-100">
+<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">STS</button>
+<div id="statusFilters_md" class="dropdown-menu dropdown-menu-dark p-2 small">
+  <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
+  <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
+  <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
+  <label class="dropdown-item"><input type="checkbox" value="DELAYED" data-sts="DELAYED" checked> Delayed</label>
+  <label class="dropdown-item"><input type="checkbox" value="CANCLD"  data-sts="CANCLD"  checked> Canceled</label>
+  <label class="dropdown-item"><input type="checkbox" value="ALTERN"  data-sts="ALTERN"  checked> Diverted</label>
+  <label class="dropdown-item"><input type="checkbox" value="UNKNW"   data-sts="UNKNW"   checked> Unknown</label>
+      <label class="dropdown-item"><input type="checkbox" value="TAXI"   data-sts="TAXI"   checked> Taxi</label>
+</div>
+      </div>
+    </div>
+
+    <div class="col-md-2">
+      <div class="btn-group w-100">
+<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
+        data-bs-toggle="dropdown"
+        data-bs-auto-close="outside">COL</button>
+<div id="colToggles_md" class="dropdown-menu dropdown-menu-dark p-2 small">
+  <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
+  <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
+  <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
+  <label class="dropdown-item"><input type="checkbox" value="FRI" checked> FRI</label>
+  <label class="dropdown-item"><input type="checkbox" value="EET" checked> EET</label>
+  <label class="dropdown-item"><input type="checkbox" value="DLY" checked> DLY</label>
+  <label class="dropdown-item"><input type="checkbox" value="STS" checked> STS</label>
+  <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
+</div>
+    </div>
+  </div>
+</div>
+
+  </header>
+
+  <!-- RUNWAY + STATS -->
+  <div class="row g-3 align-items-stretch">
+    <!-- Vertical: 9/3 | Horizontal: 6/6 -->
+    <div class="col-9 col-lg-6">
+      <div class="card sig shadow-soft h-100">
+        <div class="cardtitle card-body pb-1"><strong>RUNWAY STATUS</strong></div>
+        <div class="card-body">
+          <div class="rwy card bg-body-tertiary position-relative">
+            <div class="rwy-track"></div>
+            <div class="rwy-id left">09</div>
+            <div class="rwy-id right">27</div>
+            <div class="rwy-badges top left"></div>
+            <div class="rwy-badges top right"></div>
+            <div class="rwy-badges mid left"></div>
+            <div class="rwy-badges mid right"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-3 col-lg-6 d-flex">
+      <div class="card sig shadow-soft h-100 w-100">
+        <div class="cardtitle card-body pb-1"><strong>STATS</strong></div>
+        <div class="p-3 pt-2"><div id="stats" class="small stats-list"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FRI + TAF + METAR -->
+  <div class="row g-3 mt-1">
+    <div class="col-md-6">
+      <div id="friCard" class="card sig shadow-soft">
+        <div class="card-body d-flex justify-content-between align-items-center">
+       <div class="cardtitle"><strong>FRI · Fog Risk Indicator</strong></div>
+          <a class="btn btn-outline-info btn-sm" id="btnSigma" href="/mmtj_fog/public/index.php" target="_blank"><i class="bi bi-diagram-3 me-1"></i>SIGMA-LV</a>
+        </div>
+        <div id="friBody" class="px-3 pb-3">Loading Risk Analysis...</div>
+      </div>
+
+      <div class="card sig shadow-soft mt-3">
+        <div class="cardtitle card-body pb-1"><strong>METAR</strong></div>
+        <pre id="metar" class="wxmono mb-0 p-3 pt-0">Loading Meteorological Area Report...</pre>
+      </div>
+    </div>
+
+    <div class="col-md-6 d-flex">
+      <div class="card sig shadow-soft h-100 w-100">
+        <div class="card-body pb-1 d-flex justify-content-between">
+          <strong>TAF</strong>
+          <span id="tafSource" class="small text-muted">Fuente:</span>
+        </div>
+        <div id="taf" class="taf-block mb-0 p-3 pt-0">Loading Terminal Area Forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="card mt-3 sig shadow-soft">
+    <div class="card-body p-0">
+      <table id="grid" class="table table-hover table-sm mb-0 align-middle">
+        <thead>
+          <tr><th>ETA</th><th>ID</th><th>ADEP</th><th>FRI</th><th>EET</th><th>DLY</th><th>STS</th><th>RMK</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Config -->
+<script>window.API_BASE='https://ctareig.com/sigma/api/';</script>
+<script>window.TIMETABLE_PROVIDER='flights';</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="./assets/js/wx.js"></script>
+<script defer src="./assets/js/runway.js"></script>
+<script defer src="./assets/js/app_ops.js"></script>
+</body>
+</html>

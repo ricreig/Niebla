@@ -1,0 +1,13 @@
+{
+    "icao": "MMTJ",
+    "ts": 1763077740,
+    "raw": "METAR MMTJ 132349Z 27005KT 10SM SCT190 21/11 A3003 RMK SLP176 57003 956 8/080 HZY",
+    "vis_sm": 10,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 270,
+    "wind_kt": 5,
+    "rvr": [],
+    "source": "AWC"
+}

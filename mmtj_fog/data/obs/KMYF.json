@@ -1,0 +1,13 @@
+{
+    "icao": "KMYF",
+    "ts": 1763077980,
+    "raw": "METAR KMYF 132353Z 30003KT 10SM CLR 22/09 A3000 RMK AO2 SLP155 T02170089 10272 20211 58005 $",
+    "vis_sm": 10,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 300,
+    "wind_kt": 3,
+    "rvr": [],
+    "source": "AWC"
+}

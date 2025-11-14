@@ -1,0 +1,13 @@
+{
+    "icao": "KSAN",
+    "ts": 1763077860,
+    "raw": "METAR KSAN 132351Z 00000KT 10SM FEW010 FEW070 BKN200 21/15 A3001 RMK AO2 SLP160 T02060150 10256 20206 56010",
+    "vis_sm": 10,
+    "wx": "",
+    "ceil_ft": 0,
+    "vv_ft": 0,
+    "wind_dir": 0,
+    "wind_kt": 0,
+    "rvr": [],
+    "source": "AWC"
+}
