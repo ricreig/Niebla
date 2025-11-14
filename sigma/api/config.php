@@ -3,9 +3,15 @@ declare(strict_types=1);
 
 // Definir aquí las constantes de FR24
 $env_fr24 = getenv('FR24_API_TOKEN') ?: '';
-define('FR24_API_TOKEN', $env_fr24 ?: '019a797b-2593-7072-b590-25dd7c326041|whPw4X68F8Uo5vaVvKPPoCUrjlDD1hgToO4MJ6O12a11d1ce');
-define('FR24_API_BASE', 'https://fr24api.flightradar24.com/api');
-define('FR24_API_VERSION', 'v1');
+if (!defined('FR24_API_TOKEN')) {
+    define('FR24_API_TOKEN', $env_fr24 ?: '019a797b-2593-7072-b590-25dd7c326041|whPw4X68F8Uo5vaVvKPPoCUrjlDD1hgToO4MJ6O12a11d1ce');
+}
+if (!defined('FR24_API_BASE')) {
+    define('FR24_API_BASE', 'https://fr24api.flightradar24.com/api');
+}
+if (!defined('FR24_API_VERSION')) {
+    define('FR24_API_VERSION', 'v1');
+}
 
 return [
   'DB' => [
@@ -31,7 +37,7 @@ return [
   'ICAO' => 'MMTJ',
   'DEFAULT_WINDOW_HOURS' => 12,
   'CACHE_TTL' => 90,
-  'timezone' => 'UTC',
+  'timezone' => 'America/Tijuana',
   'icao' => 'MMTJ',
   'urls' => [
     'avs'   => 'https://ctareig.com/timetable/api/avs.php',

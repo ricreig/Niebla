@@ -5,7 +5,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/avs_client.php';
 
-function parse_time_utc(?string $value): ?DateTimeImmutable {
+function parse_time_utc(?string $value, ?DateTimeZone $fallbackTz = null): ?DateTimeImmutable {
     if ($value === null) {
         return null;
     }
@@ -13,19 +13,29 @@ function parse_time_utc(?string $value): ?DateTimeImmutable {
     if ($value === '') {
         return null;
     }
+    static $utcTz = null;
+    if ($utcTz === null) {
+        $utcTz = new DateTimeZone('UTC');
+    }
+    $fallbackTz = $fallbackTz ?? $utcTz;
     try {
         if (preg_match('/[Zz]|[+\-]\d{2}:?\d{2}$/', $value)) {
             $dt = new DateTimeImmutable($value);
         } else {
-            $dt = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+            $dt = new DateTimeImmutable($value, $fallbackTz);
         }
-        return $dt->setTimezone(new DateTimeZone('UTC'));
+        return $dt->setTimezone($utcTz);
     } catch (Throwable $e) {
-        $ts = strtotime($value);
-        if ($ts === false) {
-            return null;
+        try {
+            $dt = new DateTimeImmutable($value, $fallbackTz);
+        } catch (Throwable $inner) {
+            $ts = strtotime($value);
+            if ($ts === false) {
+                return null;
+            }
+            $dt = (new DateTimeImmutable('@' . $ts))->setTimezone($fallbackTz);
         }
-        return (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone('UTC'));
+        return $dt->setTimezone($utcTz);
     }
 }
 
@@ -68,20 +78,21 @@ function normalize_status(string $status): string {
 }
 
 $cfg = cfg();
-$tzDefaultName = $cfg['timezone'] ?? 'America/Tijuana';
-try {
-    $tzDefault = new DateTimeZone($tzDefaultName);
-} catch (Throwable $e) {
-    $tzDefault = new DateTimeZone('America/Tijuana');
+$tzDefault = sigma_timezone();
+$tzUtc = new DateTimeZone('UTC');
+
+$cliArgs = $_SERVER['argv'] ?? [];
+if (!is_array($cliArgs)) {
+    $cliArgs = [];
 }
 
-$dateParam = $argv[1] ?? ($_GET['date'] ?? '');
+$dateParam = $cliArgs[1] ?? ($_GET['date'] ?? '');
 $date = trim((string)$dateParam);
 if ($date === '') {
     $date = (new DateTimeImmutable('now', $tzDefault))->format('Y-m-d');
 }
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-    fwrite(STDERR, "[update_departures] invalid date format: $date\n");
+    sigma_stderr("[update_departures] invalid date format: $date\n");
     exit(1);
 }
 
@@ -119,7 +130,7 @@ SQL;
 
 $ins = $db->prepare($sql);
 if (!$ins) {
-    fwrite(STDERR, "[update_departures] DB prepare error: " . $db->error . "\n");
+    sigma_stderr("[update_departures] DB prepare error: " . $db->error . "\n");
     exit(2);
 }
 
@@ -143,7 +154,7 @@ foreach ($airports as $iata) {
         'date'     => $date,
     ], 900);
     if (!($res['ok'] ?? false)) {
-        fwrite(STDERR, "[update_departures] failed to fetch timetable for {$iata}: " . ($res['error'] ?? 'unknown') . "\n");
+        sigma_stderr("[update_departures] failed to fetch timetable for {$iata}: " . ($res['error'] ?? 'unknown') . "\n");
         continue;
     }
     $data = $res['data'] ?? [];
@@ -195,20 +206,39 @@ foreach ($airports as $iata) {
             $acType = null;
         }
 
-        $stdUtcDt = parse_time_utc($dep['scheduled'] ?? $dep['scheduledTime'] ?? $dep['scheduled_time'] ?? null);
+        $depTz = null;
+        if (isset($dep['timezone']) && is_string($dep['timezone']) && $dep['timezone'] !== '') {
+            try {
+                $depTz = new DateTimeZone($dep['timezone']);
+            } catch (Throwable $e) {
+                $depTz = null;
+            }
+        }
+        if (!$depTz) {
+            $depTz = sigma_timezone_for_airport($dep['iata'] ?? $dep['icao'] ?? '')
+                ?? sigma_timezone_for_airport($iata)
+                ?? $tzDefault;
+        }
+
+        $arrTz = null;
+        if (isset($arr['timezone']) && is_string($arr['timezone']) && $arr['timezone'] !== '') {
+            try {
+                $arrTz = new DateTimeZone($arr['timezone']);
+            } catch (Throwable $e) {
+                $arrTz = null;
+            }
+        }
+        if (!$arrTz) {
+            $arrTz = sigma_timezone_for_airport($arr['iata'] ?? $arr['icao'] ?? '') ?? $tzUtc;
+        }
+
+        $stdUtcDt = parse_time_utc($dep['scheduled'] ?? $dep['scheduledTime'] ?? $dep['scheduled_time'] ?? null, $depTz);
         if (!$stdUtcDt) {
             $skippedNoStd++;
             continue;
         }
-        $staUtcDt = parse_time_utc($arr['scheduled'] ?? $arr['scheduledTime'] ?? $arr['scheduled_time'] ?? null);
-        $etaUtcDt = parse_time_utc($dep['estimated'] ?? $dep['estimatedTime'] ?? $dep['estimated_runway'] ?? null);
-
-        $depTzName = $dep['timezone'] ?? $tzDefault->getName();
-        try {
-            $depTz = new DateTimeZone($depTzName);
-        } catch (Throwable $e) {
-            $depTz = $tzDefault;
-        }
+        $staUtcDt = parse_time_utc($arr['scheduled'] ?? $arr['scheduledTime'] ?? $arr['scheduled_time'] ?? null, $arrTz);
+        $etaUtcDt = parse_time_utc($dep['estimated'] ?? $dep['estimatedTime'] ?? $dep['estimated_runway'] ?? null, $depTz);
         $include = ($stdUtcDt->setTimezone($depTz)->format('Y-m-d') === $date);
         if (!$include && $etaUtcDt) {
             $include = ($etaUtcDt->setTimezone($depTz)->format('Y-m-d') === $date);
@@ -247,7 +277,7 @@ foreach ($airports as $iata) {
         $arrCode = $arrCode ? strtoupper($arrCode) : null;
 
         if (!$ins->execute()) {
-            fwrite(STDERR, "[update_departures] insert error for {$flightNumber}: " . $ins->error . "\n");
+            sigma_stderr("[update_departures] insert error for {$flightNumber}: " . $ins->error . "\n");
             continue;
         }
         $aff = $ins->affected_rows;
@@ -271,4 +301,4 @@ $summary = sprintf(
     $skippedRange
 );
 
-fwrite(STDOUT, $summary . "\n");
+sigma_stdout($summary . "\n");
