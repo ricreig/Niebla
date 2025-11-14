@@ -74,23 +74,25 @@ $hours = int_param('hours', 12);
 
 // Optional start time (ISO8601 or 'now'). When provided, the API will
 // determine whether to use the local timetable (AVS + FR24 live) or
-// fallback to FR24 flight-summary for historical dates.  If the date
-// component of `start` is before today (UTC), the timetable table will
-// not have schedules (aviationstack only provides current-day).  In that
-// case we fetch all flight activity for the window via FR24 summary.
+// fallback to FR24 flight-summary for historical dates.  When the
+// requested window ends before the beginning of the current UTC day, the
+// timetable table will not have schedules (aviationstack only provides
+// current-day), so we fetch historical activity via the FR24 summary.
 $start = $_GET['start'] ?? null;
 // Normalise start parameter; handle 'now' specially.
 $use_summary = false;
 $startIso = null;
 if ($start && strtolower($start) !== 'now') {
-  // Ensure Z suffix (UTC). Accept both with and without trailing Z.
-  $startIso = preg_match('/Z$/', $start) ? $start : $start.'Z';
+  // Ensure Z suffix (UTC). Accept both with and without trailing timezone offset.
+  $startIso = preg_match('/(?:Z|[+\-]\d{2}:?\d{2})$/i', $start) ? $start : $start.'Z';
   $ts = strtotime($startIso);
   if ($ts !== false) {
-    $startDate = gmdate('Y-m-d', $ts);
-    $todayDate = gmdate('Y-m-d');
-    if ($startDate < $todayDate) {
-      $use_summary = true;
+    $startOfToday = strtotime(gmdate('Y-m-d').' 00:00:00 UTC');
+    if ($startOfToday !== false) {
+      $endTs = $ts + ($hours * 3600);
+      if ($endTs <= $startOfToday) {
+        $use_summary = true;
+      }
     }
   }
 }

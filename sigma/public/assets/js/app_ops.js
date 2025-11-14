@@ -91,7 +91,13 @@ function toIsoUtc(isoLike){
   }
   function parseInputAsUTC(v){
     if(!v) return null;
-    const d = new Date(v + 'Z'); // fuerza UTC
+    let s = String(v).trim();
+    if(!s) return null;
+    s = s.replace(' ', 'T');
+    if(!s.includes('T') && /^\d{4}-\d{2}-\d{2}$/.test(s)){
+      s += 'T00:00';
+    }
+    const d = new Date(s);
     return isFinite(d) ? d : null;
   }
   function padDateUTC(d){ return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`; }
