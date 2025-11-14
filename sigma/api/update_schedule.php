@@ -81,6 +81,42 @@ function normalize_status(string $status): string {
     return $map[$t] ?? $t;
 }
 
+function first_non_empty(array $src, array $keys): string {
+    foreach ($keys as $key) {
+        if (!array_key_exists($key, $src)) {
+            continue;
+        }
+        $val = $src[$key];
+        if ($val === null) {
+            continue;
+        }
+        $str = trim((string)$val);
+        if ($str !== '') {
+            return $str;
+        }
+    }
+    return '';
+}
+
+function extract_numeric_suffix(array $candidates): string {
+    foreach ($candidates as $candidate) {
+        if ($candidate === null) {
+            continue;
+        }
+        $str = trim((string)$candidate);
+        if ($str === '') {
+            continue;
+        }
+        if (preg_match('/(\d{1,4})$/', $str, $m)) {
+            return $m[1];
+        }
+        if (preg_match('/(\d+)/', $str, $m)) {
+            return $m[1];
+        }
+    }
+    return '';
+}
+
 $cfg = cfg();
 $iata = strtoupper((string)($cfg['IATA'] ?? 'TIJ'));
 $icao = strtoupper((string)($cfg['ICAO'] ?? 'MMTJ'));
@@ -203,13 +239,43 @@ foreach ($data as $row) {
     $ac  = is_array($row['aircraft'] ?? null) ? $row['aircraft'] : [];
 
     $flightIata = strtoupper(trim((string)($flt['iata'] ?? $flt['iataNumber'] ?? $flt['number'] ?? '')));
-    $flightIcao = strtoupper(trim((string)($flt['icao'] ?? $flt['icaoNumber'] ?? '')));
+    $flightIcao = strtoupper(trim(first_non_empty($flt, [
+        'icao', 'icaoNumber', 'icao_code', 'icaoCode', 'icao_number', 'icao_num',
+        'icaoFlightNumber', 'icao_flight_number', 'icao_full', 'icaoFull'
+    ])));
+    $airlineIcao = strtoupper(trim(first_non_empty($air, [
+        'icao', 'icaoCode', 'icao_code', 'icaoNumber', 'icao_number', 'icaoPrefix', 'icao_prefix'
+    ])));
+    if ($airlineIcao === '') {
+        $airlineIcao = '';
+    }
     if ($flightIata === '' && $flightIcao === '') {
         $skippedNoFlight++;
         continue;
     }
 
     $flightNumber = $flightIata !== '' ? $flightIata : $flightIcao;
+    if ($flightIcao === '' && $airlineIcao !== '') {
+        $numSuffix = extract_numeric_suffix([
+            $flt['number'] ?? null,
+            $flt['iata'] ?? null,
+            $flt['iataNumber'] ?? null,
+            $flightNumber,
+        ]);
+        if ($numSuffix !== '') {
+            $flightIcao = $airlineIcao . $numSuffix;
+        }
+    }
+    // Algunas respuestas traen el callsign en un campo directo
+    if ($flightIcao === '') {
+        $directCallsign = strtoupper(trim(first_non_empty($row, ['callsign', 'callSign', 'flight_call_sign', 'flight_callsign'])));
+        if ($directCallsign !== '') {
+            $flightIcao = $directCallsign;
+        }
+    }
+    if ($flightIcao !== '') {
+        $flightIcao = preg_replace('/[^A-Z0-9]/', '', $flightIcao);
+    }
     $callsign = $flightIcao !== '' ? $flightIcao : null;
 
     $airlineName = null;
