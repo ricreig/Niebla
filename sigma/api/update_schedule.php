@@ -4,170 +4,311 @@ declare(strict_types=1);
 /**
  * update_schedule.php
  *
- * This script pulls the arrival timetable for TIJ from the AviationStack API
- * and stores the results into the `flights` table.  It is intended to be
- * executed by cron twice per day (e.g. every 12 hours) to persist the
- * scheduled arrivals in the database.  By caching the schedule in SQL we
- * avoid repeatedly hitting the limited AviationStack API and maintain a
- * historical record of operations.  Only the arrival side is currently
- * stored; departures could be added analogously.
- *
- * Example usage from CLI:
- *   php update_schedule.php 2025-11-12
- * If no date argument is given, the current UTC date is used.
+ * Importa el timetable de llegadas TIJ/MMTJ desde AviationStack y lo persiste
+ * en la tabla `flights`.  Se ejecuta desde cron (CLI) tomando como parámetro
+ * el día objetivo en hora local de Tijuana.  El script evita duplicados de
+ * códigos compartidos, normaliza ICAO/IATA y conserva los estatus reales que
+ * entrega AviationStack (scheduled, active, landed, etc.).
  */
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/avs_client.php';
 
-// Determine the date to fetch (YYYY-MM-DD).  If provided on the command
-// line or via ?date=YYYY-MM-DD parameter, use that; otherwise default to
-// current UTC date.
+/**
+ * Parse string a DateTimeImmutable en UTC. Devuelve null si el valor es vacío
+ * o no se puede interpretar.
+ */
+function parse_time_utc(?string $value): ?DateTimeImmutable {
+    if ($value === null) {
+        return null;
+    }
+    $value = trim((string)$value);
+    if ($value === '') {
+        return null;
+    }
+    try {
+        if (preg_match('/[Zz]|[+\-]\d{2}:?\d{2}$/', $value)) {
+            $dt = new DateTimeImmutable($value);
+        } else {
+            $dt = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        }
+        return $dt->setTimezone(new DateTimeZone('UTC'));
+    } catch (Throwable $e) {
+        $ts = strtotime($value);
+        if ($ts === false) {
+            return null;
+        }
+        return (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone('UTC'));
+    }
+}
 
-// --- Fecha base (si no se pasa por CLI o GET), SIEMPRE local TIJ ---
-$tzTIJ = new DateTimeZone('America/Tijuana');
+function pick_code(array $segment, string $fallback): string {
+    $iata = strtoupper(trim((string)($segment['iata'] ?? $segment['iataCode'] ?? '')));
+    $icao = strtoupper(trim((string)($segment['icao'] ?? $segment['icaoCode'] ?? '')));
+    if ($iata !== '') {
+        return $iata;
+    }
+    if ($icao !== '') {
+        return $icao;
+    }
+    return $fallback;
+}
+
+function normalize_status(string $status): string {
+    $t = strtolower(trim($status));
+    if ($t === '') {
+        return 'scheduled';
+    }
+    $map = [
+        'active'   => 'active',
+        'airborne' => 'en-route',
+        'enroute'  => 'en-route',
+        'en-route' => 'en-route',
+        'landed'   => 'landed',
+        'arrived'  => 'landed',
+        'diverted' => 'diverted',
+        'alternate'=> 'diverted',
+        'cancelled'=> 'cancelled',
+        'canceled' => 'cancelled',
+        'cncl'     => 'cancelled',
+        'cancld'   => 'cancelled',
+        'delayed'  => 'delayed',
+        'delay'    => 'delayed',
+        'taxi'     => 'taxi',
+        'scheduled'=> 'scheduled',
+    ];
+    return $map[$t] ?? $t;
+}
+
+$cfg = cfg();
+$iata = strtoupper((string)($cfg['IATA'] ?? 'TIJ'));
+$icao = strtoupper((string)($cfg['ICAO'] ?? 'MMTJ'));
+$tzName = $cfg['timezone'] ?? 'America/Tijuana';
+
+try {
+    $tzLocal = new DateTimeZone($tzName);
+} catch (Throwable $e) {
+    $tzLocal = new DateTimeZone('America/Tijuana');
+}
+$tzUtc = new DateTimeZone('UTC');
 
 $argDate = $argv[1] ?? ($_GET['date'] ?? '');
 $date = trim((string)$argDate);
 if ($date === '') {
-    $date = (new DateTime('now', $tzTIJ))->format('Y-m-d');
+    $date = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
 }
 
-// Validación y clamp a “hoy local”
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-    fwrite(STDERR, "Invalid date format: $date\n");
+    fwrite(STDERR, "[update_schedule] invalid date format: $date\n");
     exit(1);
 }
-$todayLocal = (new DateTime('now', $tzTIJ))->format('Y-m-d');
+
+$todayLocal = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
 if ($date > $todayLocal) {
     $date = $todayLocal;
 }
 
-// Log útil
-fwrite(STDOUT, "[update_schedule] airport=TIJ tz=America/Tijuana effective_date=$date (today_local=$todayLocal)\n");
+try {
+    $localStart = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
+} catch (Throwable $e) {
+    fwrite(STDERR, "[update_schedule] unable to build local start for $date: {$e->getMessage()}\n");
+    exit(1);
+}
+$localEnd = $localStart->modify('+1 day');
+$utcRangeStart = $localStart->setTimezone($tzUtc);
+$utcRangeEnd   = $localEnd->setTimezone($tzUtc);
 
-// TTL de caché acotado y con bypass opcional
 $ttl = (isset($_GET['nocache']) || in_array('--nocache', $argv, true)) ? 0 : 900;
-$res = avs_get('timetable', ['iataCode' => $iata, 'type' => 'arrival', 'date' => $date], $ttl);
+$res = avs_get('timetable', [
+    'iataCode' => $iata,
+    'type'     => 'arrival',
+    'date'     => $date,
+], $ttl);
 
-
-
-
-
-// Airport IATA to import schedule for
-$cfg = cfg();
-$iata = strtoupper((string)($cfg['IATA'] ?? 'TIJ'));
-
-// Fetch timetable from AviationStack using the helper client.  We force
-// type=arrival because SIGMA focuses on inbound flights.  We pass a
-// generous TTL so that repeated invocations during the same run will hit
-// the cache.  The avs_client handles adding the access_key.
-$res = avs_get('timetable', ['iataCode' => $iata, 'type' => 'arrival', 'date' => $date], 3600);
 if (!($res['ok'] ?? false)) {
-  fwrite(STDERR, "Failed to fetch timetable: " . ($res['error'] ?? 'unknown') . "\n");
-  exit(2);
+    fwrite(STDERR, "[update_schedule] failed to fetch timetable: " . ($res['error'] ?? 'unknown') . "\n");
+    exit(2);
 }
 $data = $res['data'] ?? [];
-if (!is_array($data)) $data = [];
+if (!is_array($data)) {
+    $data = [];
+}
 
-// Prepare DB
 $db = db();
 $db->set_charset('utf8mb4');
-$ins = $db->prepare(
-  "INSERT INTO flights (flight_number, callsign, airline, dep_icao, dst_icao, std_utc, sta_utc, delay_min, status)\n"
-  . "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n"
-  . "ON DUPLICATE KEY UPDATE delay_min=VALUES(delay_min), status=VALUES(status)"
-);
+
+$sql = <<<SQL
+INSERT INTO flights (
+  flight_number,
+  callsign,
+  airline,
+  ac_reg,
+  ac_type,
+  dep_icao,
+  dst_icao,
+  std_utc,
+  sta_utc,
+  delay_min,
+  status
+) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+ON DUPLICATE KEY UPDATE
+  callsign   = VALUES(callsign),
+  airline    = VALUES(airline),
+  ac_reg     = VALUES(ac_reg),
+  ac_type    = VALUES(ac_type),
+  dep_icao   = VALUES(dep_icao),
+  dst_icao   = VALUES(dst_icao),
+  std_utc    = VALUES(std_utc),
+  sta_utc    = VALUES(sta_utc),
+  delay_min  = VALUES(delay_min),
+  status     = VALUES(status)
+SQL;
+
+$ins = $db->prepare($sql);
 if (!$ins) {
-  fwrite(STDERR, "DB prepare error: " . $db->error . "\n");
-  exit(3);
+    fwrite(STDERR, "[update_schedule] DB prepare error: " . $db->error . "\n");
+    exit(3);
 }
 
-$count = 0;
+$flightNumber = $callsign = $airlineName = $acReg = $acType = $depCode = $arrCode = $stdUtc = $staUtc = $statusOut = null;
+$delayMin = 0;
+$ins->bind_param('sssssssssis', $flightNumber, $callsign, $airlineName, $acReg, $acType, $depCode, $arrCode, $stdUtc, $staUtc, $delayMin, $statusOut);
+
+$seen = [];
+$totalRows = 0;
+$inserted = 0;
+$updated = 0;
+$skippedCodeshare = 0;
+$skippedOutOfRange = 0;
+$skippedNoSta = 0;
+$skippedNoFlight = 0;
+
 foreach ($data as $row) {
-  // Extract nested fields with fallbacks
-  $dep = $row['departure'] ?? [];
-  $arr = $row['arrival'] ?? [];
-  $air = $row['airline'] ?? [];
-  $flt = $row['flight'] ?? [];
-
-  // Flight number (prefer iataNumber or iata; fall back to icao)
-  $flightNumber = $flt['iata'] ?? ($flt['iataNumber'] ?? null);
-  if (!$flightNumber) {
-    $flightNumber = $flt['icao'] ?? null;
-  }
-  $flightNumber = $flightNumber ? strtoupper((string)$flightNumber) : null;
-  if (!$flightNumber) continue;
-
-  // Callsign / flight ICAO (not always present); store uppercase or null
-  $callsign = $flt['icao'] ?? null;
-  $callsign = $callsign ? strtoupper((string)$callsign) : null;
-
-  // Airline name
-  $airlineName = $air['name'] ?? null;
-  $airlineName = $airlineName ? trim((string)$airlineName) : null;
-
-  // Departure and arrival airports (IATA or ICAO).  We store in dep_icao and dst_icao
-  $depIata = strtoupper((string)($dep['iata'] ?? ($dep['iataCode'] ?? '')));
-  $depIcao = strtoupper((string)($dep['icao'] ?? ''));
-  $depCode = $depIata ?: $depIcao;
-
-  $arrIata = strtoupper((string)($arr['iata'] ?? ($arr['iataCode'] ?? '')));
-  $arrIcao = strtoupper((string)($arr['icao'] ?? ''));
-  $arrCode = $arrIata ?: $arrIcao;
-
-  // Scheduled times (UTC).  We convert to MySQL DATETIME (Y-m-d H:i:s) in UTC
-  $stdIso = $dep['scheduled'] ?? ($dep['scheduledTime'] ?? null);
-  $staIso = $arr['scheduled'] ?? ($arr['scheduledTime'] ?? null);
-  $stdUtc = null;
-  $staUtc = null;
-  if ($stdIso) {
-    $ts = strtotime($stdIso);
-    if ($ts) $stdUtc = gmdate('Y-m-d H:i:s', $ts);
-  }
-  if ($staIso) {
-    $ts = strtotime($staIso);
-    if ($ts) $staUtc = gmdate('Y-m-d H:i:s', $ts);
-  }
-  // Skip if STA is missing or date mismatch
-  if (!$staUtc) continue;
-  if (substr($staUtc, 0, 10) !== $date) continue;
-
-  // Estimated time used to compute delay
-  $etaIso = $arr['estimated'] ?? ($arr['estimatedTime'] ?? null);
-  $delayMin = 0;
-  if ($staIso && $etaIso) {
-    $staTs = strtotime($staIso);
-    $etaTs = strtotime($etaIso);
-    if ($staTs && $etaTs) {
-      $delayMin = (int)round(($etaTs - $staTs) / 60);
+    $totalRows++;
+    if (!empty($row['codeshared'])) {
+        $skippedCodeshare++;
+        continue;
     }
-  }
 
-  // Status from AviationStack
-  $statusRaw = $row['flight_status'] ?? ($row['status'] ?? 'scheduled');
-  $statusRaw = strtolower((string)$statusRaw);
-  // Map to simple DB status for schedule: we normalise to scheduled or cancelled
-  $dbStatus = in_array($statusRaw, ['cancelled','canceled','cncl','cancld'], true) ? 'cancelled' : 'scheduled';
+    $dep = is_array($row['departure'] ?? null) ? $row['departure'] : [];
+    $arr = is_array($row['arrival'] ?? null) ? $row['arrival'] : [];
+    $air = is_array($row['airline'] ?? null) ? $row['airline'] : [];
+    $flt = is_array($row['flight'] ?? null) ? $row['flight'] : [];
+    $ac  = is_array($row['aircraft'] ?? null) ? $row['aircraft'] : [];
 
-  // Bind and execute
-  $ins->bind_param('sssssssis',
-    $flightNumber,
-    $callsign,
-    $airlineName,
-    $depCode,
-    $arrCode,
-    $stdUtc,
-    $staUtc,
-    $delayMin,
-    $dbStatus
-  );
-  if (!$ins->execute()) {
-    fwrite(STDERR, "Insert error for flight $flightNumber: " . $ins->error . "\n");
-    continue;
-  }
-  $count++;
+    $flightIata = strtoupper(trim((string)($flt['iata'] ?? $flt['iataNumber'] ?? $flt['number'] ?? '')));
+    $flightIcao = strtoupper(trim((string)($flt['icao'] ?? $flt['icaoNumber'] ?? '')));
+    if ($flightIata === '' && $flightIcao === '') {
+        $skippedNoFlight++;
+        continue;
+    }
+
+    $flightNumber = $flightIata !== '' ? $flightIata : $flightIcao;
+    $callsign = $flightIcao !== '' ? $flightIcao : null;
+
+    $airlineName = null;
+    if (isset($air['name']) && trim((string)$air['name']) !== '') {
+        $airlineName = trim((string)$air['name']);
+    }
+
+    $acReg = isset($ac['registration']) ? strtoupper(trim((string)$ac['registration'])) : null;
+    if ($acReg === '') {
+        $acReg = null;
+    }
+    $acType = isset($ac['icao'] ) ? strtoupper(trim((string)$ac['icao'])) : null;
+    if (!$acType && isset($ac['icao_code'])) {
+        $acType = strtoupper(trim((string)$ac['icao_code']));
+    }
+    if (!$acType && isset($ac['iata'])) {
+        $acType = strtoupper(trim((string)$ac['iata']));
+    }
+    if ($acType === '') {
+        $acType = null;
+    }
+
+    $stdUtcDt = parse_time_utc($dep['scheduled'] ?? $dep['scheduledTime'] ?? $dep['scheduled_time'] ?? null);
+    $staUtcDt = parse_time_utc($arr['scheduled'] ?? $arr['scheduledTime'] ?? $arr['scheduled_time'] ?? null);
+    if (!$staUtcDt) {
+        $skippedNoSta++;
+        continue;
+    }
+
+    $etaUtcDt = parse_time_utc($arr['estimated'] ?? $arr['estimatedTime'] ?? $arr['estimated_runway'] ?? null);
+    $ataUtcDt = parse_time_utc($arr['actual'] ?? $arr['actualTime'] ?? $arr['actual_runway'] ?? null);
+
+    $include = ($staUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $date);
+    if (!$include && $etaUtcDt) {
+        $include = ($etaUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $date);
+    }
+    if (!$include && $ataUtcDt) {
+        $include = ($ataUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $date);
+    }
+    if (!$include) {
+        $skippedOutOfRange++;
+        continue;
+    }
+
+    $depCode = pick_code($dep, $iata);
+    $arrCode = pick_code($arr, $iata);
+    if ($arrCode !== $iata && $arrCode !== $icao) {
+        // Solo persistimos llegadas hacia TIJ/MMTJ.
+        $arrCode = $iata;
+    }
+
+    $delayMin = 0;
+    if (isset($arr['delay']) && is_numeric($arr['delay'])) {
+        $delayMin = (int)$arr['delay'];
+    } elseif ($etaUtcDt) {
+        $delayMin = (int)round(($etaUtcDt->getTimestamp() - $staUtcDt->getTimestamp()) / 60);
+    } elseif ($ataUtcDt) {
+        $delayMin = (int)round(($ataUtcDt->getTimestamp() - $staUtcDt->getTimestamp()) / 60);
+    }
+
+    $statusOut = normalize_status((string)($row['flight_status'] ?? $row['status'] ?? 'scheduled'));
+    if (in_array($statusOut, ['active', 'en-route'], true) && !$etaUtcDt) {
+        // Sin ETA pero activo: lo marcamos como taxi para la UI.
+        $statusOut = 'taxi';
+    }
+
+    $stdUtc = $stdUtcDt ? $stdUtcDt->format('Y-m-d H:i:s') : null;
+    $staUtc = $staUtcDt->format('Y-m-d H:i:s');
+
+    $dupKey = ($callsign ?: $flightNumber) . '|' . $staUtc;
+    if (isset($seen[$dupKey])) {
+        // Evita duplicados por códigos compartidos redundantes en el mismo ETA.
+        continue;
+    }
+    $seen[$dupKey] = true;
+
+    $arrCode = strtoupper($arrCode);
+    $depCode = strtoupper($depCode);
+
+    if (!$ins->execute()) {
+        fwrite(STDERR, "[update_schedule] insert error for {$flightNumber}: " . $ins->error . "\n");
+        continue;
+    }
+    $aff = $ins->affected_rows;
+    if ($aff === 1) {
+        $inserted++;
+    } elseif ($aff === 2) {
+        $updated++;
+    }
 }
 
-fwrite(STDOUT, "Imported $count flights for date $date\n");
+$summary = sprintf(
+    '[update_schedule] airport=%s tz=%s effective_date=%s (today_local=%s) total_api=%d inserted=%d updated=%d skipped_codeshare=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d',
+    $iata,
+    $tzLocal->getName(),
+    $date,
+    $todayLocal,
+    $totalRows,
+    $inserted,
+    $updated,
+    $skippedCodeshare,
+    $skippedNoSta,
+    $skippedNoFlight,
+    $skippedOutOfRange
+);
+
+fwrite(STDOUT, $summary . "\n");

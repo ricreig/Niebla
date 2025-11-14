@@ -49,16 +49,17 @@
 
 function toIsoUtc(isoLike){
   if(!isoLike) return null;
-  const s = String(isoLike).trim();
+  let s = String(isoLike).trim();
   if(!s) return null;
 
-  // Si ya viene con 'T' (ISO) lo dejamos como está
-  if (s.includes('T')) return s;
-  // Formato MySQL: "YYYY-MM-DD HH:MM[:SS]"
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(s)) {
-    return s.replace(' ', 'T') + 'Z';
+  s = s.replace(' ', 'T');
+  if(!s.includes('T') && /^\d{4}-\d{2}-\d{2}$/.test(s)){
+    s += 'T00:00:00';
   }
-  return s; // fallback
+  if(!/[Zz]$/.test(s) && !/[+\-]\d{2}:?\d{2}$/.test(s)){
+    s += 'Z';
+  }
+  return s;
 }
 
   function firstValue(elArr){ for(const el of elArr){ if(el && el.value) return el.value; } return ''; }
@@ -248,7 +249,7 @@ function toIsoUtc(isoLike){
   return j.rows.map(r => normRow({
     eta: toIsoUtc(r.eta_utc || r.sta_utc || null),
     sta: toIsoUtc(r.sta_utc || r.eta_utc || null),
-    id : r.flight_icao || r.flight || '—',
+    id : r.flight_icao || r.flight_iata || r.flight || '—',
     adep: r.dep_iata || r.dep_icao || '—',
     fri: r.fri ?? null,
     dly: fmtDelay(r.delay_min),
