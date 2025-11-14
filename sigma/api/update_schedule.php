@@ -93,14 +93,19 @@ try {
 }
 $tzUtc = new DateTimeZone('UTC');
 
-$argDate = $argv[1] ?? ($_GET['date'] ?? '');
+$cliArgs = $_SERVER['argv'] ?? [];
+if (!is_array($cliArgs)) {
+    $cliArgs = [];
+}
+
+$argDate = $cliArgs[1] ?? ($_GET['date'] ?? '');
 $date = trim((string)$argDate);
 if ($date === '') {
     $date = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
 }
 
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-    fwrite(STDERR, "[update_schedule] invalid date format: $date\n");
+    sigma_stderr("[update_schedule] invalid date format: $date\n");
     exit(1);
 }
 
@@ -112,14 +117,14 @@ if ($date > $todayLocal) {
 try {
     $localStart = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
 } catch (Throwable $e) {
-    fwrite(STDERR, "[update_schedule] unable to build local start for $date: {$e->getMessage()}\n");
+    sigma_stderr("[update_schedule] unable to build local start for $date: {$e->getMessage()}\n");
     exit(1);
 }
 $localEnd = $localStart->modify('+1 day');
 $utcRangeStart = $localStart->setTimezone($tzUtc);
 $utcRangeEnd   = $localEnd->setTimezone($tzUtc);
 
-$ttl = (isset($_GET['nocache']) || in_array('--nocache', $argv, true)) ? 0 : 900;
+$ttl = (isset($_GET['nocache']) || in_array('--nocache', $cliArgs, true)) ? 0 : 900;
 $res = avs_get('timetable', [
     'iataCode' => $iata,
     'type'     => 'arrival',
@@ -127,7 +132,7 @@ $res = avs_get('timetable', [
 ], $ttl);
 
 if (!($res['ok'] ?? false)) {
-    fwrite(STDERR, "[update_schedule] failed to fetch timetable: " . ($res['error'] ?? 'unknown') . "\n");
+    sigma_stderr("[update_schedule] failed to fetch timetable: " . ($res['error'] ?? 'unknown') . "\n");
     exit(2);
 }
 $data = $res['data'] ?? [];
@@ -167,7 +172,7 @@ SQL;
 
 $ins = $db->prepare($sql);
 if (!$ins) {
-    fwrite(STDERR, "[update_schedule] DB prepare error: " . $db->error . "\n");
+    sigma_stderr("[update_schedule] DB prepare error: " . $db->error . "\n");
     exit(3);
 }
 
@@ -285,7 +290,7 @@ foreach ($data as $row) {
     $depCode = strtoupper($depCode);
 
     if (!$ins->execute()) {
-        fwrite(STDERR, "[update_schedule] insert error for {$flightNumber}: " . $ins->error . "\n");
+        sigma_stderr("[update_schedule] insert error for {$flightNumber}: " . $ins->error . "\n");
         continue;
     }
     $aff = $ins->affected_rows;
@@ -311,4 +316,4 @@ $summary = sprintf(
     $skippedOutOfRange
 );
 
-fwrite(STDOUT, $summary . "\n");
+sigma_stdout($summary . "\n");
