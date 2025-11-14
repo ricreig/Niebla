@@ -68,6 +68,46 @@ function map_status($s): string {
   return $t ?: 'scheduled';
 }
 
+function window_bounds(int $hours, ?string $startIso): array {
+  $startTs = null;
+  if ($startIso) {
+    $ts = strtotime($startIso);
+    if ($ts !== false) {
+      $startTs = $ts;
+    }
+  }
+  if ($startTs === null) {
+    $startTs = time();
+  }
+  if ($hours < 1) {
+    $hours = 1;
+  }
+  $endTs = $startTs + ($hours * 3600);
+  return [$startTs, $endTs];
+}
+
+function row_within_window(array $row, int $startTs, int $endTs): bool {
+  $candidates = [];
+  foreach (['eta_utc','sta_utc','ata_utc'] as $field) {
+    if (!empty($row[$field])) {
+      $ts = strtotime((string)$row[$field]);
+      if ($ts !== false) {
+        $candidates[] = $ts;
+      }
+    }
+  }
+  if (!$candidates) {
+    // Sin hora utilizable: mantener el vuelo para evitar perder información.
+    return true;
+  }
+  foreach ($candidates as $ts) {
+    if ($ts >= $startTs && $ts <= $endTs) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /* ========== Entrada ========== */
 // Number of hours to search. Defaults to 12 if not provided or invalid.
 $hours = int_param('hours', 12);
@@ -96,6 +136,11 @@ if ($start && strtolower($start) !== 'now') {
     }
   }
 }
+
+// Determina la ventana solicitada (timestamps UTC)
+[$windowStartTs, $windowEndTs] = window_bounds($hours, $startIso);
+$windowStartIso = gmdate('c', $windowStartTs);
+$windowEndIso   = gmdate('c', $windowEndTs);
 
 /* ========== Recolección de vuelos ========== */
 // Siempre construimos una lista de vuelos en $out.  Dependiendo del valor
@@ -544,10 +589,16 @@ if (!$use_summary) {
   }
 }
 
+/* ========== Filtro final por ventana solicitada ========== */
+$out = array_values(array_filter($out, function($row) use ($windowStartTs, $windowEndTs) {
+  if (!is_array($row)) return false;
+  return row_within_window($row, $windowStartTs, $windowEndTs);
+}));
+
 /* ========== Salida ========== */
 jres([
   'ok'   => true,
-  'from' => gmdate('c'),
-  'to'   => gmdate('c', time()+$hours*3600),
+  'from' => $windowStartIso,
+  'to'   => $windowEndIso,
   'rows' => $out
 ]);
