@@ -75,13 +75,18 @@ try {
     $tzDefault = new DateTimeZone('America/Tijuana');
 }
 
-$dateParam = $argv[1] ?? ($_GET['date'] ?? '');
+$cliArgs = $_SERVER['argv'] ?? [];
+if (!is_array($cliArgs)) {
+    $cliArgs = [];
+}
+
+$dateParam = $cliArgs[1] ?? ($_GET['date'] ?? '');
 $date = trim((string)$dateParam);
 if ($date === '') {
     $date = (new DateTimeImmutable('now', $tzDefault))->format('Y-m-d');
 }
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-    fwrite(STDERR, "[update_departures] invalid date format: $date\n");
+    sigma_stderr("[update_departures] invalid date format: $date\n");
     exit(1);
 }
 
@@ -119,7 +124,7 @@ SQL;
 
 $ins = $db->prepare($sql);
 if (!$ins) {
-    fwrite(STDERR, "[update_departures] DB prepare error: " . $db->error . "\n");
+    sigma_stderr("[update_departures] DB prepare error: " . $db->error . "\n");
     exit(2);
 }
 
@@ -143,7 +148,7 @@ foreach ($airports as $iata) {
         'date'     => $date,
     ], 900);
     if (!($res['ok'] ?? false)) {
-        fwrite(STDERR, "[update_departures] failed to fetch timetable for {$iata}: " . ($res['error'] ?? 'unknown') . "\n");
+        sigma_stderr("[update_departures] failed to fetch timetable for {$iata}: " . ($res['error'] ?? 'unknown') . "\n");
         continue;
     }
     $data = $res['data'] ?? [];
@@ -247,7 +252,7 @@ foreach ($airports as $iata) {
         $arrCode = $arrCode ? strtoupper($arrCode) : null;
 
         if (!$ins->execute()) {
-            fwrite(STDERR, "[update_departures] insert error for {$flightNumber}: " . $ins->error . "\n");
+            sigma_stderr("[update_departures] insert error for {$flightNumber}: " . $ins->error . "\n");
             continue;
         }
         $aff = $ins->affected_rows;
@@ -271,4 +276,4 @@ $summary = sprintf(
     $skippedRange
 );
 
-fwrite(STDOUT, $summary . "\n");
+sigma_stdout($summary . "\n");
