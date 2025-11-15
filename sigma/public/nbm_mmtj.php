@@ -370,6 +370,7 @@ function parse_nbm_block_all($block) {
         }
 
         $data[$key] = $converted;
+        $data[$key] = array_map('intval', $expandedParts);
     }
 
     return [$times, $data, $order];
@@ -537,6 +538,8 @@ if (!NBM_MMTJ_RENDER) {
             left: 0;
             z-index: 5;
             background-color: #1f2329;
+            z-index: 3;
+            background-color: rgba(33, 37, 41, 0.92);
             color: #f8f9fa;
             white-space: normal;
             width: 11rem;
@@ -567,14 +570,24 @@ if (!NBM_MMTJ_RENDER) {
         }
 
         .nbm-row-flag.nbm-row-flag-good {
+            border-left: 4px solid transparent;
+        }
+
+        .nbm-row-flag.nbm-row-flag-good {
+            background-color: rgba(25, 135, 84, 0.33) !important;
+            color: #fff !important;
             border-left-color: #198754;
         }
 
         .nbm-row-flag.nbm-row-flag-warning {
+            background-color: rgba(255, 193, 7, 0.33) !important;
+            color: #212529 !important;
             border-left-color: #ffc107;
         }
 
         .nbm-row-flag.nbm-row-flag-critical {
+            background-color: rgba(220, 53, 69, 0.33) !important;
+            color: #fff !important;
             border-left-color: #dc3545;
         }
 
@@ -598,6 +611,22 @@ if (!NBM_MMTJ_RENDER) {
 
         .row-ifc > td { background-color: rgba(0, 123, 255, 0.12); }
 
+        .row-mvv > th,
+        .row-mvv > td { background-color: rgba(13, 110, 253, 0.12); }
+
+        .row-ifv > th,
+        .row-ifv > td { background-color: rgba(111, 66, 193, 0.12); }
+
+        .row-liv > th,
+        .row-liv > td { background-color: rgba(214, 51, 132, 0.12); }
+
+        .row-mvc > th,
+        .row-mvc > td { background-color: rgba(102, 16, 242, 0.12); }
+
+        .row-ifc > th,
+        .row-ifc > td { background-color: rgba(0, 123, 255, 0.12); }
+
+        .row-lic > th,
         .row-lic > td { background-color: rgba(220, 53, 69, 0.12); }
 
         .nbm-cell-warning,
@@ -738,6 +767,35 @@ if (!NBM_MMTJ_RENDER) {
                                     ?>
                                     <tr<?= $rowClassAttr ?>>
                                         <th class="<?= implode(' ', $thClasses) ?>">
+                                    $hasWarn  = false;
+                                    $hasCrit  = false;
+                                    $cellClasses = [];
+
+                                    for ($i = 0; $i < $valCnt; $i++) {
+                                        $val = $row[$i] ?? null;
+                                        $cellClass = '';
+                                        if ($val !== null) {
+                                            if ($val >= 100) {
+                                                $cellClass = 'nbm-cell-critical';
+                                                $hasCrit   = true;
+                                            } elseif ($val > 75) {
+                                                $cellClass = 'nbm-cell-warning';
+                                                $hasWarn   = true;
+                                            }
+                                        }
+                                        $cellClasses[$i] = $cellClass;
+                                    }
+
+                                    $rowFlagClass = 'nbm-row-flag nbm-row-flag-good';
+                                    if ($hasCrit) {
+                                        $rowFlagClass = 'nbm-row-flag nbm-row-flag-critical';
+                                    } elseif ($hasWarn) {
+                                        $rowFlagClass = 'nbm-row-flag nbm-row-flag-warning';
+                                    }
+                                    $rowClassAttr = $rowClass !== '' ? ' class="' . htmlspecialchars($rowClass) . '"' : '';
+                                    ?>
+                                    <tr<?= $rowClassAttr ?>>
+                                        <th class="sticky-col nbm-row-header <?= $rowFlagClass ?>">
                                             <span class="nbm-var-name"><?= htmlspecialchars($key) ?></span>
                                             <?php if ($desc): ?>
                                                 <span class="nbm-var-desc"><?= htmlspecialchars($desc) ?></span>
