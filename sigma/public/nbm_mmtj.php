@@ -147,12 +147,28 @@ function nbm_detect_repeated_chunk($numeric) {
     return null;
 }
 
-function nbm_expand_numeric_parts(array $parts, $expectedCount) {
+function nbm_preferred_chunk_width($key) {
+    static $map = [
+        'WDR' => 3,
+        'TWD' => 3,
+        'CIG' => 3,
+        'LCB' => 3,
+    ];
+
+    if ($key === null) {
+        return null;
+    }
+
+    return $map[$key] ?? null;
+}
+
+function nbm_expand_numeric_parts(array $parts, $expectedCount, $key = null) {
     if ($expectedCount <= 0) {
         return $parts;
     }
 
     $expanded = [];
+    $preferredWidth = nbm_preferred_chunk_width($key);
 
     foreach ($parts as $part) {
         if (!preg_match('/^-?\d+$/', $part)) {
@@ -202,12 +218,46 @@ function nbm_expand_numeric_parts(array $parts, $expectedCount) {
             }
 
             if (!empty($bestChunks)) {
-                usort($bestChunks, function ($a, $b) {
-                    // Prefer more segments; if tie, prefer more 3-digit chunks.
+                $preferThree = ($preferredWidth === 3);
+                $preferTwo   = ($preferredWidth === 2);
+                if (!$preferThree && !$preferTwo && $len % 3 === 0) {
+                    $preferThree = true;
+                }
+
+                usort($bestChunks, function ($a, $b) use ($preferThree, $preferTwo) {
+                    if ($preferThree) {
+                        if ($a[1] !== $b[1]) {
+                            return $b[1] <=> $a[1];
+                        }
+                        if ($a[0] !== $b[0]) {
+                            return $a[0] <=> $b[0];
+                        }
+                        if ($a[2] !== $b[2]) {
+                            return $a[2] <=> $b[2];
+                        }
+                        return 0;
+                    }
+
+                    if ($preferTwo) {
+                        if ($a[2] !== $b[2]) {
+                            return $b[2] <=> $a[2];
+                        }
+                        if ($a[0] !== $b[0]) {
+                            return $a[0] <=> $b[0];
+                        }
+                        if ($a[1] !== $b[1]) {
+                            return $b[1] <=> $a[1];
+                        }
+                        return 0;
+                    }
+
                     if ($a[0] !== $b[0]) {
                         return $b[0] <=> $a[0];
                     }
-                    return $b[1] <=> $a[1];
+                    if ($a[1] !== $b[1]) {
+                        return $b[1] <=> $a[1];
+                    }
+                    return 0;
                 });
 
                 [$segments, $count3, $count2] = $bestChunks[0];
@@ -301,7 +351,7 @@ function parse_nbm_block_all($block) {
             continue;
         }
 
-        $expandedParts = nbm_expand_numeric_parts($parts, count($times));
+        $expandedParts = nbm_expand_numeric_parts($parts, count($times), $key);
 
         if (!isset($data[$key])) {
             $order[] = $key;
