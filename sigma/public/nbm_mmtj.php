@@ -124,6 +124,136 @@ function extract_station_block($text, $station) {
 // ---------------------------------------------------------
 // Parsear bloque: detectar TODAS las filas de datos
 // ---------------------------------------------------------
+function nbm_detect_repeated_chunk($numeric) {
+    $len = strlen($numeric);
+    if ($len <= 1) {
+        return null;
+    }
+
+    $maxChunk = min(4, (int)floor($len / 2));
+    for ($size = 2; $size <= $maxChunk; $size++) {
+        if ($len % $size !== 0) {
+            continue;
+        }
+        $chunk = substr($numeric, 0, $size);
+        if ($chunk === '') {
+            continue;
+        }
+        if (str_repeat($chunk, (int)($len / $size)) === $numeric) {
+            return $chunk;
+        }
+    }
+
+    return null;
+}
+
+function nbm_expand_numeric_parts(array $parts, $expectedCount) {
+    if ($expectedCount <= 0) {
+        return $parts;
+    }
+
+    $expanded = [];
+
+    foreach ($parts as $part) {
+        if (!preg_match('/^-?\d+$/', $part)) {
+            $expanded[] = $part;
+            continue;
+        }
+
+        $sign    = ($part[0] === '-') ? '-' : '';
+        $numeric = ($sign === '-') ? substr($part, 1) : $part;
+        $len     = strlen($numeric);
+        $remainingSlots = $expectedCount - count($expanded);
+
+        if ($remainingSlots <= 1 || $len <= 3) {
+            $expanded[] = $sign . $numeric;
+            continue;
+        }
+
+        $chunks = [];
+        $chunkPattern = nbm_detect_repeated_chunk($numeric);
+        if ($chunkPattern !== null && strlen($chunkPattern) > 1) {
+            $chunkLen = strlen($chunkPattern);
+            $repeat   = (int)($len / $chunkLen);
+            if ($repeat <= $remainingSlots) {
+                foreach (str_split($numeric, $chunkLen) as $chunk) {
+                    $chunks[] = $sign . $chunk;
+                }
+            }
+        }
+
+        if (empty($chunks)) {
+            $bestChunks = [];
+            for ($count3 = 0; $count3 <= intdiv($len, 3); $count3++) {
+                $usedLen = $count3 * 3;
+                $remainingLen = $len - $usedLen;
+                if ($remainingLen < 0) {
+                    break;
+                }
+                if ($remainingLen % 2 !== 0) {
+                    continue;
+                }
+                $count2 = (int)($remainingLen / 2);
+                $segments = $count2 + $count3;
+                if ($segments <= 1 || $segments > $remainingSlots) {
+                    continue;
+                }
+                $bestChunks[] = [$segments, $count3, $count2];
+            }
+
+            if (!empty($bestChunks)) {
+                usort($bestChunks, function ($a, $b) {
+                    // Prefer more segments; if tie, prefer more 3-digit chunks.
+                    if ($a[0] !== $b[0]) {
+                        return $b[0] <=> $a[0];
+                    }
+                    return $b[1] <=> $a[1];
+                });
+
+                [$segments, $count3, $count2] = $bestChunks[0];
+                $sizes = array_merge(array_fill(0, $count3, 3), array_fill(0, $count2, 2));
+                $offset = 0;
+                foreach ($sizes as $size) {
+                    $chunks[] = $sign . substr($numeric, $offset, $size);
+                    $offset  += $size;
+                }
+            }
+        }
+
+        if (empty($chunks) && $len > 3) {
+            $baseChunks = intdiv($len, 3);
+            if ($baseChunks >= 1 && $baseChunks <= $remainingSlots) {
+                $chunks = array_map(function ($chunk) use ($sign) {
+                    return $sign . $chunk;
+                }, str_split(substr($numeric, 0, $baseChunks * 3), 3));
+
+                $remainder = $len % 3;
+                if ($remainder > 0) {
+                    $lastIndex = count($chunks) - 1;
+                    if ($lastIndex >= 0) {
+                        $chunks[$lastIndex] = $sign . substr($numeric, $baseChunks * 3 - 3, 3 + $remainder);
+                    } else {
+                        $chunks[] = $sign . $numeric;
+                    }
+                }
+            }
+        }
+
+        if (empty($chunks)) {
+            $expanded[] = $sign . $numeric;
+        } else {
+            foreach ($chunks as $chunk) {
+                if (count($expanded) >= $expectedCount) {
+                    break;
+                }
+                $expanded[] = $chunk;
+            }
+        }
+    }
+
+    return $expanded;
+}
+
 function parse_nbm_block_all($block) {
     $lines = preg_split('/\R+/', trim($block));
     $times = [];
@@ -171,10 +301,25 @@ function parse_nbm_block_all($block) {
             continue;
         }
 
+        $expandedParts = nbm_expand_numeric_parts($parts, count($times));
+
         if (!isset($data[$key])) {
             $order[] = $key;
         }
-        $data[$key] = array_map('intval', $parts);
+        $converted = [];
+        foreach ($expandedParts as $value) {
+            if (!preg_match('/^-?\d+$/', $value)) {
+                $converted[] = null;
+                continue;
+            }
+            if (strlen($value) > 9) {
+                $converted[] = null;
+                continue;
+            }
+            $converted[] = (int)$value;
+        }
+
+        $data[$key] = $converted;
     }
 
     return [$times, $data, $order];
@@ -284,13 +429,25 @@ $labels = [
     'MVC' => 'Prob. techo MVFR (≤ 3000 ft)',
     'IFC' => 'Prob. techo IFR (< 1000 ft)',
     'LIC' => 'Prob. techo LIFR (< 500 ft)',
-    'PRA' => 'Prob. tipo de precipitación A (%)',
+    'PZR' => 'Prob. condicional de lluvia gélida (%)',
+    'PSN' => 'Prob. condicional de nieve (%)',
+    'PPL' => 'Prob. condicional de aguanieve / hielo (%)',
+    'PRA' => 'Prob. condicional de lluvia (%)',
+    'S01' => 'Acumulado de nieve 1h (1/10 pulgadas)',
     'SOL' => 'Sol (índice)',
     'SLV' => 'Snow level / variable auxiliar',
 ];
 
 // Claves a resaltar (visibilidad y techo)
 $focusKeys = ['MVV', 'IFV', 'LIV', 'MVC', 'IFC', 'LIC'];
+$rowColorClasses = [
+    'MVV' => 'row-mvv',
+    'IFV' => 'row-ifv',
+    'LIV' => 'row-liv',
+    'MVC' => 'row-mvc',
+    'IFC' => 'row-ifc',
+    'LIC' => 'row-lic',
+];
 
 if (!NBM_MMTJ_RENDER) {
     return;
@@ -308,6 +465,10 @@ if (!NBM_MMTJ_RENDER) {
     <!-- Tu paleta -->
     <link href="assets/css/metar.css" rel="stylesheet">
     <style>
+        body {
+            zoom: 0.7;
+        }
+
         .cat-vfr  { background-color: #198754; color: #fff; }
         .cat-mvfr { background-color: #0d6efd; color: #fff; }
         .cat-ifr  { background-color: #dc3545; color: #fff; }
@@ -324,20 +485,82 @@ if (!NBM_MMTJ_RENDER) {
         .nbm-table th.sticky-col {
             position: sticky;
             left: 0;
-            z-index: 3;
+            z-index: 5;
+            background-color: #1f2329;
+            color: #f8f9fa;
+            white-space: normal;
+            width: 11rem;
+            max-width: 11rem;
+            min-width: 11rem;
+            word-break: break-word;
+            box-shadow: 4px 0 8px rgba(0, 0, 0, 0.45);
         }
 
         .nbm-var-name {
             font-weight: 600;
+            display: block;
         }
 
         .nbm-var-desc {
-            font-size: 0.68rem;
+            font-size: 0.58rem;
+            display: block;
+            line-height: 1.1;
+            color: #ced4da;
         }
 
-        .focus-row {
-            border-left: 4px solid #ffc107;
-            background-color: rgba(255, 193, 7, 0.05);
+        .nbm-row-header {
+            text-align: left;
+        }
+
+        .nbm-row-flag {
+            border-left: 0.45rem solid transparent;
+        }
+
+        .nbm-row-flag.nbm-row-flag-good {
+            border-left-color: #198754;
+        }
+
+        .nbm-row-flag.nbm-row-flag-warning {
+            border-left-color: #ffc107;
+        }
+
+        .nbm-row-flag.nbm-row-flag-critical {
+            border-left-color: #dc3545;
+        }
+
+        .nbm-cell-warning {
+            background-color: rgba(255, 193, 7, 0.35) !important;
+            color: #212529 !important;
+        }
+
+        .nbm-cell-critical {
+            background-color: rgba(220, 53, 69, 0.35) !important;
+            color: #fff !important;
+        }
+
+        .row-mvv > td { background-color: rgba(13, 110, 253, 0.12); }
+
+        .row-ifv > td { background-color: rgba(111, 66, 193, 0.12); }
+
+        .row-liv > td { background-color: rgba(214, 51, 132, 0.12); }
+
+        .row-mvc > td { background-color: rgba(102, 16, 242, 0.12); }
+
+        .row-ifc > td { background-color: rgba(0, 123, 255, 0.12); }
+
+        .row-lic > td { background-color: rgba(220, 53, 69, 0.12); }
+
+        .nbm-cell-warning,
+        .nbm-cell-critical {
+            font-weight: 600;
+        }
+
+        .nbm-table td {
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .card-main {
+            width: 100%;
         }
 
         .legend-box {
@@ -354,7 +577,7 @@ if (!NBM_MMTJ_RENDER) {
     </style>
 </head>
 <body>
-<div class="container py-3">
+<div class="container-fluid py-3">
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div>
@@ -390,7 +613,7 @@ if (!NBM_MMTJ_RENDER) {
 
         <div class="row g-3">
             <div class="col-12">
-                <div class="card shadow-sm">
+                <div class="card shadow-sm card-main w-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
                             <strong>
@@ -411,7 +634,7 @@ if (!NBM_MMTJ_RENDER) {
                             <table class="table table-sm table-bordered mb-0 nbm-table align-middle">
                                 <thead>
                                 <tr>
-                                    <th class="sticky-col bg-dark text-white text-start">
+                                    <th class="sticky-col nbm-row-header">
                                         Variable
                                     </th>
                                     <?php foreach ($times as $t): ?>
@@ -422,21 +645,61 @@ if (!NBM_MMTJ_RENDER) {
                                 <tbody>
                                 <?php foreach ($order as $key): ?>
                                     <?php
-                                    $row     = $data[$key] ?? [];
-                                    $valCnt  = count($times);
-                                    $desc    = $labels[$key] ?? '';
-                                    $isFocus = in_array($key, $focusKeys, true);
+                                    $row      = $data[$key] ?? [];
+                                    $valCnt   = count($times);
+                                    $desc     = $labels[$key] ?? '';
+                                    $rowClass = $rowColorClasses[$key] ?? '';
+                                    $isFocus  = in_array($key, $focusKeys, true);
+                                    $hasWarn  = false;
+                                    $hasCrit  = false;
+                                    $cellClasses = array_fill(0, $valCnt, '');
+
+                                    if ($isFocus) {
+                                        for ($i = 0; $i < $valCnt; $i++) {
+                                            $val = $row[$i] ?? null;
+                                            if ($val === null) {
+                                                continue;
+                                            }
+                                            if ($val >= 100) {
+                                                $cellClasses[$i] = 'nbm-cell-critical';
+                                                $hasCrit = true;
+                                            } elseif ($val > 75) {
+                                                $cellClasses[$i] = 'nbm-cell-warning';
+                                                $hasWarn = true;
+                                            }
+                                        }
+                                    }
+
+                                    $thClasses = ['sticky-col', 'nbm-row-header'];
+                                    if ($isFocus) {
+                                        $thClasses[] = 'nbm-row-flag';
+                                        if ($hasCrit) {
+                                            $thClasses[] = 'nbm-row-flag-critical';
+                                        } elseif ($hasWarn) {
+                                            $thClasses[] = 'nbm-row-flag-warning';
+                                        } else {
+                                            $thClasses[] = 'nbm-row-flag-good';
+                                        }
+                                    }
+
+                                    $rowClassAttr = ($isFocus && $rowClass !== '')
+                                        ? ' class="' . htmlspecialchars($rowClass) . '"'
+                                        : '';
                                     ?>
-                                    <tr class="<?= $isFocus ? 'focus-row' : '' ?>">
-                                        <th class="sticky-col bg-dark text-white text-start">
+                                    <tr<?= $rowClassAttr ?>>
+                                        <th class="<?= implode(' ', $thClasses) ?>">
                                             <span class="nbm-var-name"><?= htmlspecialchars($key) ?></span>
                                             <?php if ($desc): ?>
-                                                <br><span class="nbm-var-desc text-secondary"><?= htmlspecialchars($desc) ?></span>
+                                                <span class="nbm-var-desc"><?= htmlspecialchars($desc) ?></span>
                                             <?php endif; ?>
                                         </th>
                                         <?php for ($i = 0; $i < $valCnt; $i++): ?>
-                                            <?php $val = isset($row[$i]) ? $row[$i] : null; ?>
-                                            <td>
+                                            <?php
+                                            $val = $row[$i] ?? null;
+                                            $cellClass = $cellClasses[$i] ?? '';
+                                            $classAttr = $cellClass ? ' class="' . $cellClass . '"' : '';
+                                            ?>
+                                            <td<?= $classAttr ?>>
                                                 <?= ($val === null) ? '&mdash;' : intval($val) ?>
                                             </td>
                                         <?php endfor; ?>
@@ -444,9 +707,9 @@ if (!NBM_MMTJ_RENDER) {
                                 <?php endforeach; ?>
 
                                 <tr>
-                                    <th class="sticky-col bg-dark text-white text-start">
+                                    <th class="sticky-col nbm-row-header nbm-row-flag nbm-row-flag-good">
                                         <span class="nbm-var-name">CAT</span>
-                                        <br><span class="nbm-var-desc text-secondary">Categoría FAA probable (VFR/MVFR/IFR/LIFR)</span>
+                                        <span class="nbm-var-desc">Categoría FAA probable (VFR/MVFR/IFR/LIFR)</span>
                                     </th>
                                     <?php for ($i = 0; $i < count($times); $i++):
                                         $cat = $cats[$i] ?? 'VFR';
