@@ -255,7 +255,7 @@ function toIsoUtc(isoLike){
 
   /* ===== RMK helpers ===== */
   function rowTimeKey(r){
-    return r.ETA || r.STA || r._ATA || '';
+    return r.ETA || r.STA || r.STD || r._ATA || '';
   }
   function rowKey(r){
     const id = r.ID || '—';
@@ -272,8 +272,8 @@ function toIsoUtc(isoLike){
 
   /* ===== Normalización de fila ===== */
   // Mantengo r.RAW_STS (AVS); otros campos para UI.
-  function normRow({ eta, sta=null, id, adep, fri=null, dly='0m', raw_sts='unknown' }){
-    return { ETA: eta, STA: sta, ID: id, ADEP: adep, FRI: fri ?? 'N/D', DLY: dly, RAW_STS: raw_sts };
+  function normRow({ eta, sta=null, std=null, id, adep, fri=null, dly='0m', raw_sts='unknown' }){
+    return { ETA: eta, STA: sta, STD: std, ID: id, ADEP: adep, FRI: fri ?? 'N/D', DLY: dly, RAW_STS: raw_sts };
   }
 
   /* ===== Fuente AVS por día ===== */
@@ -286,6 +286,15 @@ function toIsoUtc(isoLike){
     return (icao && num) ? `${icao}${num}` : (f.icaoNumber || f.iataNumber || f.number || '—');
   }
 
+  function preferIcao(row){
+    const icao = (row.flight_icao || row.flight_ICAO || '').toString().toUpperCase();
+    const airline = (row.airline_icao || row.AIRLINE_ICAO || '').toString().toUpperCase();
+    const number = (row.flight_number || row.FLIGHT_NUMBER || '').toString().toUpperCase();
+    if(icao) return icao;
+    if(airline && number) return `${airline}${String(number).replace(/^[A-Z]+/, '')}`;
+    return row.registration || row.ID || '—';
+  }
+
   async function loadAVSForDate(yyyy_mm_dd){
     const url = `${API_BASE}avs_timetable.php?type=arrival&iata=${encodeURIComponent(IATA_AIRPORT)}&date=${encodeURIComponent(yyyy_mm_dd)}&ttl=60`;
     const j   = await jget(url);
@@ -295,6 +304,7 @@ function toIsoUtc(isoLike){
   return j.rows.map(r => normRow({
     eta: toIsoUtc(r.eta_utc || r.sta_utc || null),
     sta: toIsoUtc(r.sta_utc || r.eta_utc || null),
+    std: toIsoUtc(r.std_utc || null),
     id : r.flight_icao || r.flight_iata || r.flight || '—',
     adep: r.dep_iata || r.dep_icao || '—',
     fri: r.fri ?? null,
@@ -312,13 +322,14 @@ function toIsoUtc(isoLike){
       const al   = x.airline   || {};
       const etaISO = pickT(arr);
       const staISO = arr?.scheduledTime || arr?.scheduled || null;
+      const stdISO = pickT(dep) || null;
       const id  = icaoFromPieces(al, fl);
       const adep= dep.iataCode || dep.iata || dep.icaoCode || dep.icao || '—';
       const dly = fmtDelay(parseInt(arr.delay ?? '0',10) || 0);
       const ata = arr?.actualTime || arr?.actual || null;
       const raw = x.status || x.flight_status || 'unknown';
 
-      const row = normRow({ eta: etaISO, sta: staISO, id, adep, dly, raw_sts: raw });
+      const row = normRow({ eta: etaISO, sta: staISO, std: stdISO, id, adep, dly, raw_sts: raw });
       if(ata) row._ATA = ata;
       return row;
     });
@@ -345,13 +356,14 @@ function toIsoUtc(isoLike){
       // Normalize using the same schema as AVS
       const eta = r.eta_utc || r.ETA || null;
       const sta = r.sta_utc || r.STA || null;
-      // ID logic: prefer flight_icao, then flight_number, then registration (tail), then existing ID
-      const id  = r.flight_icao || r.flight_number || r.registration || r.ID || '—';
+      const std = r.std_utc || r.STD || null;
+      // ID logic: prefer ICAO identifier; derive from airline+number if needed
+      const id  = preferIcao(r);
       const adep= r.dep_iata || r.ADEP || '—';
       const fri = (typeof r.fri_pct === 'number' && r.fri_pct>=0) ? (Math.round(r.fri_pct*10)/10) : null;
       const dly = fmtDelay(parseInt(r.delay_min ?? '0',10) || 0);
       const raw = r.status || r.RAW_STS || 'unknown';
-      const row = normRow({ eta: eta, sta: sta, id: id, adep: adep, fri: fri, dly: dly, raw_sts: raw });
+      const row = normRow({ eta: eta, sta: sta, std: std, id: id, adep: adep, fri: fri, dly: dly, raw_sts: raw });
       if (r.ata_utc || r._ATA) row._ATA = r.ata_utc || r._ATA;
       // Add alternate airport if provided
       if (r.dest_iata_actual) row._ALT = String(r.dest_iata_actual).toUpperCase();

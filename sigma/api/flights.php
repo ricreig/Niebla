@@ -89,7 +89,7 @@ function window_bounds(int $hours, ?string $startIso): array {
 
 function row_within_window(array $row, int $startTs, int $endTs): bool {
   $candidates = [];
-  foreach (['eta_utc','sta_utc','ata_utc'] as $field) {
+  foreach (['eta_utc','sta_utc','std_utc','ata_utc'] as $field) {
     if (!empty($row[$field])) {
       $ts = strtotime((string)$row[$field]);
       if ($ts !== false) {
@@ -282,23 +282,34 @@ if ($use_summary) {
     // direct keys.  Detect by presence of sta_utc or eta_utc fields.
     if (isset($r['sta_utc']) || isset($r['eta_utc']) || isset($r['flight_iata'])) {
       $sta = norm_time($r['sta_utc'] ?? null);
+      $std = norm_time($r['std_utc'] ?? null);
       $eta = norm_time($r['eta_utc'] ?? null);
       $ata = norm_time($r['ata_utc'] ?? null);
       $dep_iata = strtoupper((string)($r['dep_iata'] ?? ''));
       if (!preg_match('/^[A-Z]{3}$/', $dep_iata)) $dep_iata = '';
       $flt_iata = strtoupper((string)($r['flight_iata'] ?? ''));
+      $flt_icao = strtoupper((string)($r['flight_icao'] ?? $r['callsign'] ?? ''));
       // The first 2-3 letters are airline ICAO; derive flight ICAO if possible
       $aln_icao = '';
-      $flt_icao = '';
-      if ($flt_iata) {
+      if ($flt_icao && preg_match('/^([A-Z]{2,4})/', $flt_icao, $m)) {
+        $aln_icao = $m[1];
+      }
+      if (!$flt_icao && $flt_iata) {
         // Separate letters and digits
         if (preg_match('/^([A-Z]{2,4})(\d+)/', $flt_iata, $m)) {
           $aln_icao = $m[1];
-          $flt_icao = $flt_iata;
+          $flt_icao = $m[1].$m[2];
         } else {
           $flt_icao = $flt_iata;
         }
       }
+      $flightNum = '';
+      if ($flt_iata && preg_match('/^([A-Z]{2,4})(\d+)/', $flt_iata, $m)) {
+        $flightNum = $m[2];
+      } elseif ($flt_icao && preg_match('/^[A-Z]{2,4}(\d+)/', $flt_icao, $m)) {
+        $flightNum = $m[1];
+      }
+
       $statusRaw = strtolower((string)($r['status'] ?? 'scheduled'));
       $delay  = is_numeric($r['delay_min'] ?? null) ? (int)$r['delay_min'] : 0;
       // If the flight is currently active/airborne and has no scheduled arrival, classify as taxi (pre-departure)
@@ -309,11 +320,12 @@ if ($use_summary) {
         'eta_utc'       => $eta ?: ($sta ?: null),
         'sta_utc'       => $sta,
         'ata_utc'       => $ata,
+        'std_utc'       => $std,
         'dep_iata'      => $dep_iata,
         'delay_min'     => $delay,
         'status'        => $statusRaw,
         'flight_icao'   => $flt_icao,
-        'flight_number' => $flt_iata,
+        'flight_number' => $flightNum ?: $flt_iata,
         'airline_icao'  => $aln_icao,
         'fri_pct'       => -1,
         'eet_min'       => null,
@@ -338,6 +350,7 @@ if ($use_summary) {
     $eta = norm_time(find_key_deep((array)$arrival, ['estimatedTime','estimated','eta','arrival_estimated']));
     $sta = norm_time(find_key_deep((array)$arrival, ['scheduledTime','scheduled','sta','arrival_scheduled']));
     $ata = norm_time(find_key_deep((array)$arrival, ['actualTime','actual','ata','arrival_actual']));
+    $std = norm_time(find_key_deep((array)$depart, ['scheduledTime','scheduled','std','departure_scheduled']));
 
     $dep_iata = strtoupper((string)(
         find_key_deep((array)$depart, ['iataCode','iata','origin_iata','from_iata'])
@@ -379,6 +392,7 @@ if ($use_summary) {
       'eta_utc'       => $eta ?: ($sta ?: null),
       'sta_utc'       => $sta,
       'ata_utc'       => $ata,
+      'std_utc'       => $std,
       'dep_iata'      => $dep_iata,
       'delay_min'     => $delay,
       'status'        => $status,
