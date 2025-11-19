@@ -27,8 +27,12 @@ Dashboard para riesgo operacional por vuelo ante niebla/visibilidad. Integra:
 - `POST api/import_sabanas.php` — importar CSV de sábanas.
 - `GET api/export_csv.php?from=...&to=...` — CSV de riesgo.
 - `GET api/export_pdf.php?from=...&to=...` — PDF ejecutivo.
+- `docs/DATA_PIPELINE.md` — parámetros y flujo completo (AviationStack, FlightSchedule, FR24, METAR/TAF, cron).
 
 ## Notas
 - Los cálculos de riesgo se basan en FRI (0–100) + señal TAF + observación METAR + centinelas + demora crítica local.
 - Unidades: visibilidad en SM, techo/VV en ft, viento en kt.
 - Colorimetría: Verde ≤30, Ámbar 31–60, Rojo 61–80, Magenta >80.
+- `sigma/cron/update_schedule.sh` ejecuta `api/update_schedule.php --days=2` para traer el día actual y el previo. Agregue la ruta a crontab (p.ej. cada 5 minutos) para mantener la tabla `flights` siempre poblada.
+- La UI de operaciones ya no expone selects de fecha: siempre consulta `[hoy-1, hoy]` y refresca cada `TIMETABLE_REFRESH_MINUTES` sin interacción.
+- Pruebas rápidas de deduplicación: `php sigma/tests/run.php`.

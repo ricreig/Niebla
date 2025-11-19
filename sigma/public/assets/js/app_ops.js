@@ -6,13 +6,10 @@
   /* ===== DOM (compat xs/md) ===== */
   const tbody = $('#grid tbody');
 
-  // reloj y toggle en desktop + móvil
+  // reloj toggle y rango automático
   const clocks = ['#utcClock','#utcClock_m'].map(q=>$(q)).filter(Boolean);
-  const tzBtns = ['#btnTZ','#btnTZ_m'].map(q=>$(q)).filter(Boolean);
+  const rangeHints = ['#rangeHint','#rangeHint_m'].map(q=>$(q)).filter(Boolean);
 
-  // fechas en xs y md
-  const fromEls = ['#dtFrom','#dtFrom_md'].map(q=>$(q)).filter(Boolean);
-  const toEls   = ['#dtTo','#dtTo_md'].map(q=>$(q)).filter(Boolean);
   const updBtns = ['#btnApply','#btnApply_md'].map(q=>$(q)).filter(Boolean);
 
   // menús de estado y columnas en xs y md
@@ -34,8 +31,11 @@
   let SORT_MODE = 'ETA'; // 'ETA' | 'SEC'
   const RMK_STORE = new Map(); // key -> {sec,alt,note,stsOverride}
   window._lastRows = [];
-  // Control de refresco en curso
+  const AUTO_RANGE_DAYS = 2;
+  const REFRESH_MINUTES = Math.max(1, Number(window.TIMETABLE_REFRESH_MINUTES || 5));
+  let CURRENT_RANGE = null;
   let REFRESHING = false;
+  let AUTO_REFRESH_HANDLE = null;
 
   /* ===== Utils ===== */
   function jget(url, timeoutMs = 10000){
@@ -62,7 +62,6 @@ function toIsoUtc(isoLike){
   return s;
 }
 
-  function firstValue(elArr){ for(const el of elArr){ if(el && el.value) return el.value; } return ''; }
   function setAllText(els, txt){ els.forEach(el=>{ if(el) el.textContent = txt; }); }
 
   // ===== Spinner helpers =====
@@ -84,23 +83,42 @@ function toIsoUtc(isoLike){
     btnEl.disabled = false;
   }
 
-  // === UTC helpers para inputs datetime-local ===
-  function utcNowInputValue(){
-    const d = new Date();
-    return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  function localRangeLabel(date){
+    return `${pad2(date.getDate())}/${pad2(date.getMonth()+1)} ${pad2(date.getHours())}:${pad2(date.getMinutes())} LCL`;
   }
-  function parseInputAsUTC(v){
-    if(!v) return null;
-    let s = String(v).trim();
-    if(!s) return null;
-    s = s.replace(' ', 'T');
-    if(!s.includes('T') && /^\d{4}-\d{2}-\d{2}$/.test(s)){
-      s += 'T00:00';
+  function utcRangeLabel(date){
+    return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth()+1)}-${pad2(date.getUTCDate())} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}Z`;
+  }
+  function computeRangeState(){
+    const now = new Date();
+    const midnightLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const startLocal = new Date(midnightLocal.getTime() - (AUTO_RANGE_DAYS - 1) * 86400000);
+    const endLocal = new Date(midnightLocal.getTime() + (24 * 60 * 60 * 1000) - 60000);
+    const rangeHours = Math.max(1, Math.ceil((endLocal.getTime() - startLocal.getTime()) / 3600000));
+    const localDates = [];
+    const cursor = new Date(startLocal.getFullYear(), startLocal.getMonth(), startLocal.getDate());
+    const endCursor = new Date(midnightLocal.getFullYear(), midnightLocal.getMonth(), midnightLocal.getDate());
+    while(cursor <= endCursor){
+      localDates.push(`${cursor.getFullYear()}-${pad2(cursor.getMonth()+1)}-${pad2(cursor.getDate())}`);
+      cursor.setDate(cursor.getDate()+1);
     }
-    const d = new Date(s);
-    return isFinite(d) ? d : null;
+    return {
+      startIso: startLocal.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      endIso: endLocal.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      hours: rangeHours,
+      localDates: Array.from(new Set(localDates))
+    };
   }
-  function padDateUTC(d){ return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`; }
+  function updateRangeLabels(range){
+    const start = new Date(range.startIso);
+    const end   = new Date(range.endIso);
+    const label = `Ventana automática: ${localRangeLabel(start)} → ${localRangeLabel(end)} · ${utcRangeLabel(start)} → ${utcRangeLabel(end)}`;
+    rangeHints.forEach(el => { if(el) el.textContent = label; });
+  }
+  function scheduleAutoRefresh(){
+    if(AUTO_REFRESH_HANDLE) clearInterval(AUTO_REFRESH_HANDLE);
+    AUTO_REFRESH_HANDLE = setInterval(()=> window.refresh(), REFRESH_MINUTES * 60 * 1000);
+  }
 
   function startClock(){
     function tick(){
@@ -113,6 +131,18 @@ function toIsoUtc(isoLike){
     tick();
     clearInterval(window.__clk);
     window.__clk = setInterval(tick, 1000);
+    clocks.forEach(el => {
+      if(!el) return;
+      el.setAttribute('aria-pressed', USE_LOCAL_TIME ? 'true' : 'false');
+      el.classList.toggle('clock-local', USE_LOCAL_TIME);
+    });
+  }
+
+  function toggleClockMode(){
+    USE_LOCAL_TIME = !USE_LOCAL_TIME;
+    startClock();
+    renderGrid(window._lastRows || []);
+    applyColumnToggles();
   }
 
   function fmtETA(iso){
@@ -320,24 +350,6 @@ function toIsoUtc(isoLike){
     return rows;
   }
 
-  function eachDateInclusive(fromDate, toDate){
-    const out = [];
-    let d = new Date(Date.UTC(fromDate.getUTCFullYear(), fromDate.getUTCMonth(), fromDate.getUTCDate()));
-    const end = new Date(Date.UTC(toDate.getUTCFullYear(), toDate.getUTCMonth(), toDate.getUTCDate()));
-    while(d <= end){ out.push(padDateUTC(d)); d.setUTCDate(d.getUTCDate()+1); }
-    return out;
-  }
-
-  function readDatesUTC(){
-    // usa cualquiera que tenga valor (xs/md) y parsea en UTC
-    const vFrom = firstValue(fromEls);
-    const vTo   = firstValue(toEls);
-    const f = parseInputAsUTC(vFrom);
-    const t = parseInputAsUTC(vTo || vFrom);
-    if(!(f && t)) return [];
-    return eachDateInclusive(f, t);
-  }
-
   /* ===== Filtros ===== */
   function statusWhitelist(){
     const chosen = new Set();
@@ -374,26 +386,11 @@ function toIsoUtc(isoLike){
 
   /* ===== Orquestador ===== */
   async function loadTimetable(){
+    const range = CURRENT_RANGE || computeRangeState();
     // 1) Determine provider
     if (PROVIDER === 'flights') {
-      // Compute hours range and start timestamp from date inputs; fallback to
-      // 24 hours starting now.  When both From and To are provided and
-      // From <= To, we use From as the start parameter to request
-      // historical data if necessary.
-      let hours = 24;
-      let startIso = null;
-      const f = parseInputAsUTC(firstValue(fromEls));
-      const t = parseInputAsUTC(firstValue(toEls));
-      if (f && t && t >= f) {
-        // Determine hours difference (ceil) and clamp to [1,336] (14 days)
-        hours = Math.ceil((t.getTime() - f.getTime()) / 3600000);
-        if(hours < 1) hours = 1;
-        if(hours > 336) hours = 336;
-        // Use ISO string without milliseconds for start
-        startIso = f.toISOString();
-        // Remove milliseconds if present (e.g. 2025-11-12T00:00:00.000Z -> 2025-11-12T00:00:00Z)
-        startIso = startIso.replace(/\.\d{3}Z$/, 'Z');
-      }
+      const hours = Math.max(1, Math.min(336, range.hours));
+      const startIso = range.startIso;
       let rows = await loadFlights(hours, startIso);
       // FRI map (if fri_pct not already set)
       try{ assignFRI(rows, await fetchFRIMap()); }catch(_){}
@@ -423,12 +420,7 @@ function toIsoUtc(isoLike){
     }
 
     // Default provider: AVS timetable
-    // 1) fechas UTC
-    let dates = readDatesUTC();
-    if(dates.length===0){
-      const now = new Date();
-      dates = [ padDateUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))) ];
-    }
+    const dates = (range.localDates && range.localDates.length) ? range.localDates : [new Date().toISOString().slice(0,10)];
     // 2) fetch por día (AVS)
     const chunks = await Promise.all(dates.map(loadAVSForDate));
     // 3) aplanar resultados y eliminar duplicados en función de clave (ID+ETA+ADEP)
@@ -648,6 +640,9 @@ function updateStatsCard(rows){
     if(btnEl && btnEl.disabled) return;
     // Evitar múltiples refrescos concurrentes
     if(REFRESHING) return;
+    CURRENT_RANGE = computeRangeState();
+    updateRangeLabels(CURRENT_RANGE);
+    scheduleAutoRefresh();
     REFRESHING = true;
     if(btnEl) setBtnLoading(btnEl);
     try{
@@ -679,16 +674,6 @@ function updateStatsCard(rows){
 
   /* ===== Listeners ===== */
   document.addEventListener('DOMContentLoaded', ()=>{
-    // Prefill FROM/TO con inicio de día local y fin de día local + 24h
-    const now = new Date();
-    // inicio del día en hora local (00:00)
-    const midnightLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    // fin del día +1h (margen para capturar vuelos que cruzan medianoche)
-    const endLocal = new Date(midnightLocal.getTime() + 24 * 60 * 60 * 1000 + 60 * 60 * 1000);
-    const toLocalDateTime = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-    fromEls.forEach(el=>{ if(el && !el.value) el.value = toLocalDateTime(midnightLocal); });
-    toEls.forEach(el=>{ if(el && !el.value) el.value = toLocalDateTime(endLocal); });
-
     updBtns.forEach(b=> b?.addEventListener('click', ev => {
       const btn = ev.currentTarget;
       if(!btn) return;
@@ -726,15 +711,20 @@ function updateStatsCard(rows){
         });
       });
     });
-    // Timezone toggle
-    tzBtns.forEach(b=> b?.addEventListener('click', ()=>{
-      USE_LOCAL_TIME = !USE_LOCAL_TIME;
-      tzBtns.forEach(x=> x.textContent = USE_LOCAL_TIME ? 'LCL→UTC' : 'UTC→LCL');
-      startClock();
-      renderGrid(window._lastRows || []);
-      applyColumnToggles();
-    }));
+    clocks.forEach(clock => {
+      if(!clock) return;
+      clock.addEventListener('click', toggleClockMode);
+      clock.addEventListener('keydown', ev => {
+        if(ev.key === 'Enter' || ev.key === ' '){
+          ev.preventDefault();
+          toggleClockMode();
+        }
+      });
+    });
+    CURRENT_RANGE = computeRangeState();
+    updateRangeLabels(CURRENT_RANGE);
     startClock();
+    scheduleAutoRefresh();
     window.refresh();
   });
 })();

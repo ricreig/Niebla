@@ -117,6 +117,81 @@ function extract_numeric_suffix(array $candidates): string {
     return '';
 }
 
+/**
+ * Fetch all timetable rows for the given airport/date from AviationStack,
+ * transparently handling pagination and endpoint selection (timetable vs
+ * flights) depending on the target date.  Returns an array with keys
+ * `ok` (bool), `rows` (array) and optional `error`/`message`.
+ */
+function avs_fetch_day(string $airportIata, string $airportIcao, string $targetDate, DateTimeZone $tzLocal, int $ttl): array {
+    $todayLocal = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
+    $endpoint = 'timetable';
+    $baseParams = [];
+
+    $statusesCsv = 'scheduled,active,landed,diverted,cancelled';
+    if ($targetDate === $todayLocal) {
+        $baseParams = [
+            'type'     => 'arrival',
+            'iataCode' => $airportIata,
+            'date'     => $targetDate,
+            'flight_status' => $statusesCsv,
+        ];
+    } else {
+        // Historical (previous day) – AviationStack requires the flights endpoint
+        // filtered by arr_iata and flight_date.  We also request all statuses so
+        // cancelled/diverted flights persist in SIGMA even after landing.
+        $baseParams = [
+            'arr_iata'     => $airportIata,
+            'arr_icao'     => $airportIcao,
+            'flight_date'  => $targetDate,
+            'flight_status'=> $statusesCsv,
+        ];
+        $endpoint = 'flights';
+    }
+
+    // Provide a deterministic date range to avoid AviationStack shifting windows
+    try {
+        $localStart = new DateTimeImmutable($targetDate . ' 00:00:00', $tzLocal);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'invalid_date', 'message' => $e->getMessage()];
+    }
+    $localEnd   = $localStart->modify('+1 day -1 minute');
+    $baseParams['date_from'] = $localStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+    $baseParams['date_to']   = $localEnd->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+
+    $limit = 100;
+    $offset = 0;
+    $allRows = [];
+    $page = 0;
+
+    do {
+        $params = $baseParams + ['limit' => $limit, 'offset' => $offset];
+        $res = avs_get($endpoint, $params, $ttl);
+        if (!($res['ok'] ?? false)) {
+            return [
+                'ok'     => false,
+                'error'  => $res['error'] ?? 'avs_error',
+                'url'    => $res['_url'] ?? null,
+                'params' => $params,
+            ];
+        }
+        $chunk = $res['data'] ?? [];
+        if (!is_array($chunk)) {
+            $chunk = [];
+        }
+        $count = count($chunk);
+        $allRows = array_merge($allRows, $chunk);
+        $offset += $limit;
+        $page++;
+        // Safety: avoid infinite loops if the API ignores pagination.
+        if ($page > 40) {
+            break;
+        }
+    } while ($count === $limit);
+
+    return ['ok' => true, 'rows' => $allRows, 'endpoint' => $endpoint];
+}
+
 $cfg = cfg();
 $iata = strtoupper((string)($cfg['IATA'] ?? 'TIJ'));
 $icao = strtoupper((string)($cfg['ICAO'] ?? 'MMTJ'));
@@ -140,6 +215,20 @@ if ($date === '') {
     $date = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
 }
 
+$rangeDays = 2;
+$forceSingleDay = false;
+foreach ($cliArgs as $arg) {
+    if (preg_match('/^--days=(\d{1,2})$/', $arg, $m)) {
+        $rangeDays = max(1, min(5, (int)$m[1]));
+    }
+    if ($arg === '--single-day') {
+        $forceSingleDay = true;
+    }
+}
+if ($forceSingleDay) {
+    $rangeDays = 1;
+}
+
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     sigma_stderr("[update_schedule] invalid date format: $date\n");
     exit(1);
@@ -151,29 +240,45 @@ if ($date > $todayLocal) {
 }
 
 try {
-    $localStart = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
+    $anchor = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
 } catch (Throwable $e) {
     sigma_stderr("[update_schedule] unable to build local start for $date: {$e->getMessage()}\n");
     exit(1);
 }
-$localEnd = $localStart->modify('+1 day');
-$utcRangeStart = $localStart->setTimezone($tzUtc);
-$utcRangeEnd   = $localEnd->setTimezone($tzUtc);
+
+$datesToFetch = [];
+for ($i = $rangeDays - 1; $i >= 0; $i--) {
+    $cursor = $anchor->modify('-' . $i . ' day');
+    $cursorStr = $cursor->format('Y-m-d');
+    if ($cursorStr > $todayLocal) {
+        continue;
+    }
+    $datesToFetch[$cursorStr] = true;
+}
+$datesToFetch = array_keys($datesToFetch);
+sort($datesToFetch);
+if (!$datesToFetch) {
+    $datesToFetch = [$date];
+}
 
 $ttl = (isset($_GET['nocache']) || in_array('--nocache', $cliArgs, true)) ? 0 : 900;
-$res = avs_get('timetable', [
-    'iataCode' => $iata,
-    'type'     => 'arrival',
-    'date'     => $date,
-], $ttl);
 
-if (!($res['ok'] ?? false)) {
-    sigma_stderr("[update_schedule] failed to fetch timetable: " . ($res['error'] ?? 'unknown') . "\n");
-    exit(2);
+$fetchedRows = [];
+$fetchErrors = [];
+foreach ($datesToFetch as $cursorDate) {
+    $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $tzLocal, $ttl);
+    if (!($cursorRes['ok'] ?? false)) {
+        $fetchErrors[] = sprintf('date=%s err=%s', $cursorDate, $cursorRes['error'] ?? 'unknown');
+        continue;
+    }
+    foreach ($cursorRes['rows'] as $row) {
+        $fetchedRows[] = [$cursorDate, $row];
+    }
 }
-$data = $res['data'] ?? [];
-if (!is_array($data)) {
-    $data = [];
+
+if (!$fetchedRows) {
+    sigma_stderr("[update_schedule] no data fetched for " . implode(',', $datesToFetch) . " errors=" . implode(';', $fetchErrors) . "\n");
+    exit(2);
 }
 
 $db = db();
@@ -225,7 +330,7 @@ $skippedOutOfRange = 0;
 $skippedNoSta = 0;
 $skippedNoFlight = 0;
 
-foreach ($data as $row) {
+foreach ($fetchedRows as [$targetDate, $row]) {
     $totalRows++;
     if (!empty($row['codeshared'])) {
         $skippedCodeshare++;
@@ -308,12 +413,12 @@ foreach ($data as $row) {
     $etaUtcDt = parse_time_utc($arr['estimated'] ?? $arr['estimatedTime'] ?? $arr['estimated_runway'] ?? null);
     $ataUtcDt = parse_time_utc($arr['actual'] ?? $arr['actualTime'] ?? $arr['actual_runway'] ?? null);
 
-    $include = ($staUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $date);
+    $include = ($staUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $targetDate);
     if (!$include && $etaUtcDt) {
-        $include = ($etaUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $date);
+        $include = ($etaUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $targetDate);
     }
     if (!$include && $ataUtcDt) {
-        $include = ($ataUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $date);
+        $include = ($ataUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $targetDate);
     }
     if (!$include) {
         $skippedOutOfRange++;
@@ -368,10 +473,10 @@ foreach ($data as $row) {
 }
 
 $summary = sprintf(
-    '[update_schedule] airport=%s tz=%s effective_date=%s (today_local=%s) total_api=%d inserted=%d updated=%d skipped_codeshare=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d',
+    '[update_schedule] airport=%s tz=%s dates=%s (today_local=%s) total_api=%d inserted=%d updated=%d skipped_codeshare=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d errors=%s',
     $iata,
     $tzLocal->getName(),
-    $date,
+    implode(',', $datesToFetch),
     $todayLocal,
     $totalRows,
     $inserted,
@@ -379,7 +484,8 @@ $summary = sprintf(
     $skippedCodeshare,
     $skippedNoSta,
     $skippedNoFlight,
-    $skippedOutOfRange
+    $skippedOutOfRange,
+    $fetchErrors ? implode(';', $fetchErrors) : 'none'
 );
 
 sigma_stdout($summary . "\n");
