@@ -24,6 +24,7 @@ table#grid td.eet-done   { color:#9ca3af !important; }
 .sts-DELAYED{background:#3b1d06;color:#fdba74;border:1px solid #f59e0b}
 .sts-ALTERN {background:#3b1d06;color:#fdba74;border:1px solid #f59e0b}
 .sts-CANCLD {background:#3f0b13;color:#fecaca;border:1px solid #dc2626}
+.sts-INCDNT {background:#421320;color:#fbcfe8;border:1px solid #fb7185}
 .sts-UNKNW  {background:#3f3f46;color:#e4e4e7;border:1px solid #71717a}
 
 /* Taxi flights: active flights without scheduled arrival (STA).  Reuse the en-route

@@ -64,6 +64,7 @@ function map_status($s): string {
   if (in_array($t, ['landed','arrived','arrival'], true)) return 'landed';
   if (in_array($t, ['active','airborne','en-route','enroute'], true)) return 'active';
   if (in_array($t, ['diverted','alternate','rerouted'], true)) return 'diverted';
+  if (in_array($t, ['incident','accident','irregular'], true)) return 'incident';
   if (in_array($t, ['cancelled','canceled','cancld','cncl'], true)) return 'cancelled';
   if (in_array($t, ['scheduled','sched','programado'], true)) return 'scheduled';
   return $t ?: 'scheduled';
@@ -382,8 +383,9 @@ if ($use_summary) {
     $status = map_status(
       find_key_deep($r, ['status','state','flight_status']) ?? 'scheduled'
     );
-    // If status is active and there is no scheduled arrival time (STA), treat as taxi
-    if ($status === 'active' && !$sta) {
+    // If status is active and there is no useful schedule/ETA information, treat as taxi.
+    // Keep the flight marked as active when we still have an ETA to show it in the grid.
+    if ($status === 'active' && !$sta && !$eta) {
       $status = 'taxi';
     }
     $delay  = (int)(find_key_deep((array)$arrival, ['delay','delayed','delay_min']) ?? 0);
@@ -534,8 +536,10 @@ if (!$use_summary) {
                 // update flight_number to numeric part of newIcao
                 $row['flight_number'] = preg_replace('/^[A-Z]{2,4}/','', $newIcao);
               }
-              // Mark taxi: if flight is active and has no scheduled arrival (STA), it is taxiing.
-              if (strcasecmp((string)$row['status'], 'active') === 0 && empty($row['sta_utc'])) {
+              // Mark taxi: only when active and without STA/ETA information.
+              if (strcasecmp((string)$row['status'], 'active') === 0
+                  && empty($row['sta_utc'])
+                  && empty($row['eta_utc'])) {
                 $row['status'] = 'taxi';
               }
         }
