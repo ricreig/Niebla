@@ -30,6 +30,7 @@
 .badge-status.active{background:#0ea5e9}
 .badge-status.landed{background:#16a34a}
 .badge-status.diverted{background:#f59e0b}
+.badge-status.incident{background:#7e22ce}
 .badge-status.cancelled{background:#dc2626}
 .badge-status.unknown{background:#334155}
 

@@ -168,6 +168,7 @@ function toIsoUtc(isoLike){
     if (t==='landed') return 'LANDED';
     if (t==='scheduled') return 'SCHEDL';
     if (t==='diverted') return 'ALTERN';
+    if (t==='incident' || t==='accident' || t==='irregular') return 'INCDNT';
     if (t==='canceled' || t==='cancelled' || t==='cncl' || t==='cancld') return 'CANCLD';
     if (t==='delayed' || t==='delay') return 'DELAYED';
     if (t==='unknown') return 'UNKNW';
@@ -385,7 +386,7 @@ function toIsoUtc(isoLike){
       });
     });
     // por defecto incluimos todos los estados principales; si el usuario no elige ninguno, se muestran también los aterrizados
-        return chosen.size ? chosen : new Set(['ENROUTE','SCHEDL','LANDED','DELAYED','ALTERN','CANCLD','UNKNW','TAXI']);
+        return chosen.size ? chosen : new Set(['ENROUTE','SCHEDL','LANDED','DELAYED','ALTERN','CANCLD','INCDNT','UNKNW','TAXI']);
   }
 
   function applyColumnToggles(){
@@ -509,7 +510,7 @@ function toIsoUtc(isoLike){
   /* ===== Stats ===== */
 function updateStatsCard(rows){
   const el = document.getElementById('stats'); if(!el) return;
-  const c = {ENROUTE:0,SCHEDL:0,LANDED:0,CANCLD:0,ALTERN:0,UNKNW:0};
+  const c = {ENROUTE:0,SCHEDL:0,LANDED:0,CANCLD:0,ALTERN:0,INCDNT:0,UNKNW:0};
   rows.forEach(r => {
     // Determine the 6-letter status code via effectiveSTS6
     const sts6 = effectiveSTS6(r);
@@ -525,11 +526,13 @@ function updateStatsCard(rows){
         c.CANCLD++; break;
       case 'ALTERN':
         c.ALTERN++; break;
+      case 'INCDNT':
+        c.INCDNT++; break;
       default:
         c.UNKNW++;
     }
   });
-  const total = c.ENROUTE + c.SCHEDL + c.LANDED + c.CANCLD + c.ALTERN + c.UNKNW;
+  const total = c.ENROUTE + c.SCHEDL + c.LANDED + c.CANCLD + c.ALTERN + c.INCDNT + c.UNKNW;
 
   el.innerHTML = [
     `<div class="item"><span class="label">En-Route:</span><span class="val">${c.ENROUTE}</span></div>`,
@@ -537,6 +540,7 @@ function updateStatsCard(rows){
     `<div class="item"><span class="label">Landed:</span><span class="val">${c.LANDED}</span></div>`,
     `<div class="item"><span class="label">Canceled:</span><span class="val">${c.CANCLD}</span></div>`,
     `<div class="item"><span class="label">Diverted:</span><span class="val">${c.ALTERN}</span></div>`,
+    `<div class="item"><span class="label">Incident:</span><span class="val">${c.INCDNT}</span></div>`,
     `<div class="item"><span class="label">Unknown:</span><span class="val">${c.UNKNW}</span></div>`,
     `<div class="my-1"></div>`,
     `<div class="item fw-bold"><span class="label">Total Flights</span><span class="val">${total}</span></div>`
@@ -571,10 +575,10 @@ function updateStatsCard(rows){
             <input id="altVal" type="text" class="form-control" placeholder="MMGL, MMLM…">
           </div>
         </div>
-        <div class="mb-2">
+          <div class="mb-2">
           <label class="form-label me-2">Estatus (visual)</label>
           <div class="btn-group btn-group-sm flex-wrap" role="group">
-                ${['ENROUTE','SCHEDL','DELAYED','ALTERN','CANCLD','LANDED','TAXI','UNKNW'].map(s=>`<button type="button" class="btn btn-outline-light btn-sts" data-sts="${s}">${s}</button>`).join('')}
+                ${['ENROUTE','SCHEDL','DELAYED','ALTERN','CANCLD','LANDED','INCDNT','TAXI','UNKNW'].map(s=>`<button type="button" class="btn btn-outline-light btn-sts" data-sts="${s}">${s}</button>`).join('')}
             <button type="button" class="btn btn-outline-secondary" id="stsReset">Reset</button>
           </div>
         </div>
