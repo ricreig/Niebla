@@ -27,12 +27,12 @@ if (!function_exists('sigma_stream_stdout')) {
    */
   function sigma_stream_stdout()
   {
-    if (defined('STDOUT')) {
-      return STDOUT;
-    }
     static $stdout = null;
     if ($stdout === null) {
-      $stdout = @fopen('php://output', 'wb');
+      $stdout = @fopen('php://stdout', 'wb');
+      if ($stdout === false) {
+        $stdout = @fopen('php://output', 'wb');
+      }
       if ($stdout === false) {
         $stdout = null;
       }
@@ -49,9 +49,6 @@ if (!function_exists('sigma_stream_stderr')) {
    */
   function sigma_stream_stderr()
   {
-    if (defined('STDERR')) {
-      return STDERR;
-    }
     static $stderr = null;
     if ($stderr === null) {
       $stderr = @fopen('php://stderr', 'wb');
