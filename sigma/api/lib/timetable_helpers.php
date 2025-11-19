@@ -23,7 +23,7 @@ function timetable_dedup_key(array $row): string {
     if ($flight === '' && !empty($row['airline_icao']) && !empty($row['flight_number'])) {
         $flight = timetable_normalize_code($row['airline_icao'] . $row['flight_number']);
     }
-    $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : ($row['eta_utc'] ?? '');
+    $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : (isset($row['std_utc']) ? (string)$row['std_utc'] : ($row['eta_utc'] ?? ''));
     $dep = timetable_normalize_code($row['dep_iata'] ?? $row['dep_icao'] ?? '');
     return $flight . '|' . $sta . '|' . $dep;
 }
@@ -52,12 +52,12 @@ function timetable_merge_duplicate_rows(array $rows): array {
         $primaryKey = timetable_dedup_key($row);
         $registrationKey = '';
         if (!empty($row['registration'])) {
-            $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : ($row['eta_utc'] ?? '');
+            $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : (isset($row['std_utc']) ? (string)$row['std_utc'] : ($row['eta_utc'] ?? ''));
             $registrationKey = 'REG|' . timetable_normalize_code($row['registration']) . '|' . $sta;
         }
         $timeKey = '';
-        if (!empty($row['sta_utc']) || !empty($row['eta_utc'])) {
-            $staTime = (string)($row['sta_utc'] ?? $row['eta_utc'] ?? '');
+        if (!empty($row['sta_utc']) || !empty($row['std_utc']) || !empty($row['eta_utc'])) {
+            $staTime = (string)($row['sta_utc'] ?? $row['std_utc'] ?? $row['eta_utc'] ?? '');
             $timeKey = $staTime . '|' . timetable_normalize_code($row['dep_iata'] ?? $row['dep_icao'] ?? '');
         }
         $groupId = null;
