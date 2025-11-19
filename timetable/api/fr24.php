@@ -385,12 +385,14 @@ foreach ($scheduleMap as $key => $row) {
   $status = 'scheduled';
   $delay = $row['delay_min'] ?? null;
   $scheduleStatus = strtolower($row['status'] ?? 'scheduled');
+  $useLive = false;
   // Determine if there is live data for this flight
   if ($flightCode && isset($liveRows[$flightCode])) {
     $live = $liveRows[$flightCode];
-    $eta = $live['eta_utc'] ?? null;
-    $useLive = same_service_day($sta ?? ($row['std_utc'] ?? null), $eta);
+    $etaLive = $live['eta_utc'] ?? null;
+    $useLive = same_service_day($sta ?? ($row['std_utc'] ?? null), $etaLive);
     if ($useLive) {
+      $eta = $etaLive;
       // Detect diversion: if scheduled arrival IATA differs from live arrival
       $schedArr = strtoupper((string)($row['arr_iata'] ?? ''));
       $liveArr  = strtoupper((string)($live['arr_iata'] ?? ''));
@@ -408,7 +410,8 @@ foreach ($scheduleMap as $key => $row) {
         }
       }
     }
-  } else {
+  }
+  if (!$useLive) {
     // No live data; honour DB status if cancelled
     if ($scheduleStatus === 'cancelled') {
       $status = 'cancelled';
