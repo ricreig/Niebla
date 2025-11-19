@@ -37,7 +37,7 @@ return [
   'ICAO' => 'MMTJ',
   'DEFAULT_WINDOW_HOURS' => 12,
   'CACHE_TTL' => 90,
-  'timezone' => 'UTC',
+  'timezone' => getenv('SIGMA_TZ') ?: 'America/Tijuana',
   'icao' => 'MMTJ',
   'urls' => [
     'avs'   => 'https://ctareig.com/timetable/api/avs.php',
@@ -45,6 +45,12 @@ return [
     'metar' => 'https://ctareig.com/mmtj_fog/data/metar.json',
     'taf'   => 'https://ctareig.com/mmtj_fog/data/taf.json',
   ],
-    'AVS_BASE' => 'https://api.aviationstack.com/v1',
-    'AVS_KEY'  => '255f4bd5853f12734cf91e1053fc31a8',
+  'AVS_BASE' => 'https://api.aviationstack.com/v1',
+  'AVS_KEY'  => '255f4bd5853f12734cf91e1053fc31a8',
+  'FLIGHTSCHEDULE' => [
+    'base_url' => getenv('FLIGHTSCHEDULE_BASE') ?: '',
+    'token'    => getenv('FLIGHTSCHEDULE_TOKEN') ?: '',
+    'airline'  => getenv('FLIGHTSCHEDULE_AIRLINE') ?: '',
+  ],
+  'TIMETABLE_REFRESH_MINUTES' => (int)max(1, (int)(getenv('TIMETABLE_REFRESH_MINUTES') ?: 5)),
 ];

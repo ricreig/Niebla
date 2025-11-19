@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/lib/timetable_helpers.php';
 
 /* ========== Utilidades sin dependencias externas ========== */
 function jres($data, int $code=200): void {
@@ -526,62 +527,7 @@ if (!$use_summary) {
         }
         unset($row);
 
-            // First deduplicate by flight_icao + eta + dep_iata (legacy)
-            $unique = [];
-            $tmpRows = [];
-            foreach ($out as $row) {
-              $key = (
-                (($row['flight_icao'] ?? '') ?: '') . '|' .
-                (($row['eta_utc'] ?? '') ?: '') . '|' .
-                (($row['dep_iata'] ?? '') ?: '')
-              );
-              if (!isset($unique[$key])) {
-                $unique[$key] = true;
-                $tmpRows[] = $row;
-              }
-            }
-            // Additional deduplication by numeric flight code (to remove codeshare duplicates)
-            $groups = [];
-            foreach ($tmpRows as $row) {
-              // Determine a numeric code from flight_icao or flight_number
-              $numKey = null;
-              $code = strtoupper((string)($row['flight_icao'] ?? ''));
-              if ($code && preg_match('/^[A-Z]{2,4}(\d+)/', $code, $m)) {
-                $numKey = $m[1];
-              }
-              if ($numKey === null) {
-                $code = strtoupper((string)($row['flight_number'] ?? ''));
-                if ($code && preg_match('/^\d+$/', $code)) {
-                  $numKey = $code;
-                } elseif ($code && preg_match('/^[A-Z]{1,4}(\d+)/', $code, $m)) {
-                  $numKey = $m[1];
-                }
-              }
-              // Use ETA + dep_iata as part of key to avoid merging flights with same digits at different times
-              $timeKey = ($row['eta_utc'] ?? '') . '|' . ($row['dep_iata'] ?? '');
-              $gkey = ($numKey !== null ? $numKey : '').'|'.$timeKey;
-              if (!isset($groups[$gkey])) $groups[$gkey] = [];
-              $groups[$gkey][] = $row;
-            }
-            $newOut = [];
-            foreach ($groups as $grows) {
-              if (count($grows) === 1) {
-                $newOut[] = $grows[0];
-                continue;
-              }
-              // Pick the row whose flight_icao looks like a 3- or 4-letter ICAO code plus digits (real operator)
-              $best = $grows[0];
-              foreach ($grows as $r) {
-                $code = strtoupper((string)($r['flight_icao'] ?? ''));
-                // prefer flight_icao with 3 or 4 letters (ICAO) over others
-                if ($code && preg_match('/^[A-Z]{3,4}\d+$/', $code)) {
-                  $best = $r;
-                  break;
-                }
-              }
-              $newOut[] = $best;
-            }
-            $out = $newOut;
+            $out = timetable_merge_duplicate_rows($out);
       }
     }
   } catch (Throwable $e) {
@@ -590,6 +536,7 @@ if (!$use_summary) {
 }
 
 /* ========== Filtro final por ventana solicitada ========== */
+$out = timetable_merge_duplicate_rows($out);
 $out = array_values(array_filter($out, function($row) use ($windowStartTs, $windowEndTs) {
   if (!is_array($row)) return false;
   return row_within_window($row, $windowStartTs, $windowEndTs);

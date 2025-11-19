@@ -55,3 +55,9 @@ define('DB_PASS', getenv('DB_PASS') ?: 'Seneam@mmtj25');
 define('DB_NAME', getenv('DB_NAME') ?: 'u695435470_sigma');
 define('DB_CHARSET', 'utf8mb4');
 
+// Optional FlightSchedule API used to enrich scheduled data before merging
+// with Flightradar24 live flights.  Leave empty to skip.
+define('FLIGHTSCHEDULE_BASE', getenv('FLIGHTSCHEDULE_BASE') ?: '');
+define('FLIGHTSCHEDULE_TOKEN', getenv('FLIGHTSCHEDULE_TOKEN') ?: '');
+define('FLIGHTSCHEDULE_AIRLINE', getenv('FLIGHTSCHEDULE_AIRLINE') ?: '');
+

@@ -75,10 +75,10 @@ function colorizeTAF_multiline(raw) {
   return lines.map(ln => {
     const m = ln.match(/^(FM\d{6}|BECMG|TEMPO|PROB\d{2}\s+\d{4}\/\d{4})\s+(.*)$/);
     if (m) {
-      return `<span class="text-secondary">${m[1]}</span> <span style="color:${colorForSeg(m[2])}">${m[2]}</span>`;
+      return `<div class="taf-line"><span class="taf-token">${m[1]}</span><span class="taf-body" style="color:${colorForSeg(m[2])}">${m[2]}</span></div>`;
     }
-    return `<span style="color:${colorForSeg(ln)}">${ln}</span>`;
-  }).join('\n');
+    return `<div class="taf-line"><span class="taf-body" style="color:${colorForSeg(ln)}">${ln}</span></div>`;
+  }).join('');
 }
 
   function parseVisSm(txt) {

@@ -40,6 +40,126 @@ function jexit($arr, int $code = 200): void {
   exit;
 }
 
+function to_iso(?string $value): ?string {
+  if ($value === null) return null;
+  $value = trim($value);
+  if ($value === '') return null;
+  $ts = strtotime($value);
+  if ($ts === false) return null;
+  return gmdate('c', $ts);
+}
+
+function dedup_key(array $row): string {
+  $flight = strtoupper((string)($row['flight_iata'] ?? $row['flight_icao'] ?? $row['callsign'] ?? ''));
+  if ($flight === '' && !empty($row['registration'])) {
+    $flight = strtoupper((string)$row['registration']);
+  }
+  $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : '';
+  $dep = strtoupper((string)($row['dep_iata'] ?? $row['dep_icao'] ?? ''));
+  return $flight . '|' . $sta . '|' . $dep;
+}
+
+function merge_schedule_rows(array $base, array $secondary): array {
+  $indexed = [];
+  foreach ($base as $row) {
+    $key = dedup_key($row);
+    $indexed[$key] = $row;
+  }
+  foreach ($secondary as $row) {
+    $key = dedup_key($row);
+    if (isset($indexed[$key])) {
+      foreach ($row as $field => $value) {
+        $isEmpty = $indexed[$key][$field] === null || $indexed[$key][$field] === '';
+        if ($field === 'status') {
+          if ($isEmpty || $indexed[$key][$field] === 'scheduled') {
+            $indexed[$key][$field] = $value;
+          }
+          continue;
+        }
+        if ($isEmpty && $value !== null && $value !== '') {
+          $indexed[$key][$field] = $value;
+        }
+      }
+    } else {
+      $indexed[$key] = $row;
+    }
+  }
+  return array_values($indexed);
+}
+
+function fetch_flightschedule_rows(string $fromIso, string $toIso, string $iata, array &$errors): array {
+  if (!FLIGHTSCHEDULE_BASE || !FLIGHTSCHEDULE_TOKEN) {
+    return [];
+  }
+  $query = [
+    'arr_iata'  => $iata,
+    'date_from' => $fromIso,
+    'date_to'   => $toIso,
+  ];
+  if (FLIGHTSCHEDULE_AIRLINE) {
+    $query['airline'] = FLIGHTSCHEDULE_AIRLINE;
+  }
+  $url = rtrim(FLIGHTSCHEDULE_BASE, '/') . '?' . http_build_query($query);
+  $headers = [
+    'Authorization: Bearer ' . FLIGHTSCHEDULE_TOKEN,
+    'Accept: application/json',
+  ];
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 20,
+    CURLOPT_HTTPHEADER => $headers,
+    CURLOPT_SSL_VERIFYPEER => true,
+    CURLOPT_SSL_VERIFYHOST => 2,
+  ]);
+  $body = curl_exec($ch);
+  $err  = curl_error($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+  if ($err) {
+    $errors[] = 'fs:' . $err;
+    return [];
+  }
+  if (!$body) {
+    $errors[] = 'fs:http:' . $code;
+    return [];
+  }
+  $json = json_decode($body, true);
+  if (!is_array($json)) {
+    $errors[] = 'fs:json';
+    return [];
+  }
+  $list = [];
+  if (isset($json['rows']) && is_array($json['rows'])) {
+    $list = $json['rows'];
+  } elseif (isset($json['data']) && is_array($json['data'])) {
+    $list = $json['data'];
+  }
+  $rows = [];
+  foreach ($list as $row) {
+    if (!is_array($row)) continue;
+    $flightIata = strtoupper(trim((string)($row['flight_iata'] ?? $row['flightNumber'] ?? '')));
+    $flightIcao = strtoupper(trim((string)($row['flight_icao'] ?? $row['callsign'] ?? '')));
+    if (!$flightIcao && $flightIata && preg_match('/^([A-Z]{2,4})(\d+)/', $flightIata, $m)) {
+      $flightIcao = $m[1] . $m[2];
+    }
+    $rows[] = [
+      'flight_iata' => $flightIata ?: null,
+      'flight_icao' => $flightIcao ?: null,
+      'airline_name'=> $row['airline_name'] ?? ($row['airline'] ?? null),
+      'dep_iata'    => strtoupper((string)($row['dep_iata'] ?? $row['departure'] ?? '')) ?: null,
+      'arr_iata'    => strtoupper((string)($row['arr_iata'] ?? $row['arrival'] ?? '')) ?: null,
+      'sta_utc'     => to_iso($row['sta_utc'] ?? $row['scheduled_arrival'] ?? $row['sta'] ?? null),
+      'std_utc'     => to_iso($row['std_utc'] ?? $row['scheduled_departure'] ?? $row['std'] ?? null),
+      'delay_min'   => isset($row['delay_min']) ? (int)$row['delay_min'] : (isset($row['delay']) ? (int)$row['delay'] : null),
+      'status'      => strtolower((string)($row['status'] ?? 'scheduled')),
+      'terminal'    => $row['terminal'] ?? null,
+      'gate'        => $row['gate'] ?? null,
+    ];
+  }
+  return $rows;
+}
+
 // Helper: parse ISO8601 to timestamp; returns current time on failure
 function parse_iso($iso): int {
   $ts = strtotime($iso);
@@ -156,6 +276,14 @@ try {
 } catch (Exception $e) {
   // swallow DB exceptions
   $errors[] = 'db:' . $e->getMessage();
+}
+
+// Optionally merge in external FlightSchedule API rows before applying the
+// Flightradar24 enrichment.  This ensures flights not present in AviationStack
+// (charters, retimed operations) still appear in the timetable.
+$fsRows = fetch_flightschedule_rows($from_iso, $to_iso, $iata, $errors);
+if ($fsRows) {
+  $scheduleRows = merge_schedule_rows($scheduleRows, $fsRows);
 }
 
 // === Retrieve live data from Flightradar24 ===

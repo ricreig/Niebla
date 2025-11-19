@@ -35,49 +35,31 @@
 
   <!-- HEADER / TOOLBAR -->
   <header class="mb-2">
-    <!-- Línea 1: Título (xs y md+) -->
     <div class="row g-2 align-items-center">
       <div class="col-12 col-md">
         <strong class="h5 m-0">SIGMA · Gestión de Mínimos y Baja Visibilidad · TIJ/MMTJ</strong>
+        <div id="rangeHint" class="text-muted small mt-1"></div>
       </div>
-      <!-- En horizontal: reloj + toggle a la derecha -->
       <div class="col-12 col-md-auto d-none d-md-flex justify-content-end align-items-center gap-2">
-        <span id="utcClock" class="badge rounded-pill text-bg-secondary">UTC 00:00:00</span>
-        <button id="btnTZ" class="btn btn-sm btn-outline-secondary">UTC→LCL</button>
+        <button id="btnApply_md" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-repeat me-1"></i>Refrescar
+        </button>
+        <span id="utcClock" class="badge rounded-pill text-bg-secondary clock-toggle" role="button" tabindex="0" aria-pressed="false">UTC 00:00:00</span>
       </div>
     </div>
 
-    <!-- CONTROLES – VERTICAL (xs): dos líneas exactas -->
     <div class="d-block d-md-none mt-2">
       <div class="row g-2 align-items-center">
-        <!-- Línea 2: From | Reloj | Toggle -->
-        <div class="small col-6">
-          <label class="text-muted small mb-0">From</label>
-          <input id="dtFrom" type="datetime-local" class="small form-control form-control-sm dt-field">
+        <div class="col-8">
+          <span id="rangeHint_m" class="text-muted small"></span>
         </div>
-        <div class="col-3">
-          <label class="text-muted small mb-1 d-block">&nbsp;</label>
-          <span id="utcClock_m" class="badge rounded-pill text-bg-secondary w-100 text-center">[UTC 00:00:00]</span>
+        <div class="col-4 text-end">
+          <span id="utcClock_m" class="badge rounded-pill text-bg-secondary w-100 text-center clock-toggle" role="button" tabindex="0" aria-pressed="false">UTC 00:00:00</span>
         </div>
-        <div class="col-3">
-          <label class="text-muted small mb-1 d-block">&nbsp;</label>
-          <button id="btnTZ_m" class="btn btn-sm btn-outline-secondary w-100">UTC→LCL</button>
-        </div>
-        <!-- Línea 3: To | Update | Filtro1 | Filtro2 -->
-        <div class="small col-6">
-          <span class="text-muted small mb-0">To</span>
-          <input id="dtTo" type="datetime-local" class="small form-control form-control-sm dt-field">
-        </div>
-        <div class="col-2">
-          <button id="btnApply" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>UPD</button>
-        </div>
-        <div class="col-2">
-          <label class="text-muted small mb-1 d-block">&nbsp;</label>
+        <div class="col-6">
           <div class="btn-group w-100">
-<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
-        data-bs-toggle="dropdown"
-        data-bs-auto-close="outside">STS</button>
-<div id="statusFilters" class="dropdown-menu dropdown-menu-dark p-2 small">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">STS</button>
+            <div id="statusFilters" class="dropdown-menu dropdown-menu-dark p-2 small">
   <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
   <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
   <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
@@ -89,13 +71,10 @@
 </div>
           </div>
         </div>
-        <div class="col-2">
-          <label class="text-muted small mb-1 d-block">&nbsp;</label>
+        <div class="col-6">
           <div class="btn-group w-100">
-<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
-        data-bs-toggle="dropdown"
-        data-bs-auto-close="outside">COL</button>
-<div id="colToggles" class="dropdown-menu dropdown-menu-dark p-2 small">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">COL</button>
+            <div id="colToggles" class="dropdown-menu dropdown-menu-dark p-2 small">
   <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
   <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
   <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
@@ -107,29 +86,15 @@
 </div>
           </div>
         </div>
+        <div class="col-12">
+          <button id="btnApply" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>Refrescar</button>
+        </div>
       </div>
     </div>
 
-    <!-- CONTROLES – HORIZONTAL (md+): una sola línea 3-3-2-2-2 -->
 <div class="d-none d-md-block mt-2">
   <div class="row g-2 align-items-center">
-    <div class="col-md-3 d-flex align-items-center gap-2">
-      <label class="text-muted small mb-0">From</label>
-      <input id="dtFrom_md" type="datetime-local" class="form-control form-control-sm dt-field">
-    </div>
-
-    <div class="col-md-3 d-flex align-items-center gap-2">
-      <label class="text-muted small mb-0">To</label>
-      <input id="dtTo_md" type="datetime-local" class="form-control form-control-sm dt-field">
-    </div>
-
-    <div class="col-md-2">
-      <button id="btnApply_md" class="btn btn-sm btn-outline-secondary w-100">
-        <i class="bi bi-arrow-repeat me-1"></i>UPD
-      </button>
-    </div>
-
-    <div class="col-md-2">
+    <div class="col-md-3">
       <div class="btn-group w-100">
 <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">STS</button>
 <div id="statusFilters_md" class="dropdown-menu dropdown-menu-dark p-2 small">
@@ -145,7 +110,7 @@
       </div>
     </div>
 
-    <div class="col-md-2">
+    <div class="col-md-3">
       <div class="btn-group w-100">
 <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
         data-bs-toggle="dropdown"
@@ -238,6 +203,7 @@
 <!-- Config -->
 <script>window.API_BASE='https://ctareig.com/sigma/api/';</script>
 <script>window.TIMETABLE_PROVIDER='flights';</script>
+<script>window.TIMETABLE_REFRESH_MINUTES=5;</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="./assets/js/wx.js?v=20251114"></script>
 <script defer src="./assets/js/runway.js?v=20251114"></script>

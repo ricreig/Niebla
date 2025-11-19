@@ -32,8 +32,9 @@ table#grid td.eet-done   { color:#9ca3af !important; }
 
 /* ===== Toolbar ===== */
 .dt-field{width:14rem}
-#utcClock{font-variant-numeric:tabular-nums}
-#btnTZ{line-height:1;padding:.375rem .5rem} /* mismo alto que el pill */
+.clock-toggle{font-variant-numeric:tabular-nums;cursor:pointer;user-select:none;}
+.clock-toggle:focus{outline:2px solid rgba(255,255,255,.4);outline-offset:2px;}
+.clock-toggle.clock-local{background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.8);}
 
 /* ===== Lista de stats ===== */
 .stats-list{font-size:.92rem;line-height:1.1}
@@ -45,10 +46,14 @@ table#grid td.eet-done   { color:#9ca3af !important; }
 
 /* ===== TAF bloque: sin afectar layout ===== */
 .taf-block{
-  display:block;white-space:pre-wrap;overflow:auto;line-height:1.2;min-height:0;
+  display:flex;flex-direction:column;gap:.25rem;min-height:0;height:100%;
+  justify-content:center;overflow:auto;line-height:1.3;
   font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
   font-variant-numeric:tabular-nums;letter-spacing:.02em;
 }
+.taf-line{display:flex;flex-wrap:wrap;gap:.35rem;word-break:break-word;}
+.taf-token{font-weight:600;color:#94a3b8;}
+.taf-body{flex:1 1 auto;min-width:0;}
 
 /* ===== Divisor fino entre título y contenido ===== */
 .cardtitle{
