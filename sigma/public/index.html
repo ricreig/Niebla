@@ -126,16 +126,24 @@
   <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
 </div>
     </div>
+
+    <div class="col-md-6 col-lg-5 ms-md-auto">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input id="filterText" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
+        <button id="filterClear" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
+      </div>
+    </div>
   </div>
 </div>
 
-  <div class="mt-2">
-    <div class="row g-2 justify-content-md-end">
-      <div class="col-12 col-md-6 col-lg-4">
+  <div class="mt-2 d-md-none">
+    <div class="row g-2">
+      <div class="col-12">
         <div class="input-group input-group-sm">
           <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input id="filterText" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
-          <button id="filterClear" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
+          <input id="filterText_m" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
+          <button id="filterClear_m" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
         </div>
       </div>
     </div>

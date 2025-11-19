@@ -15,8 +15,8 @@
   // menús de estado y columnas en xs y md
   const statusMenus = ['#statusFilters','#statusFilters_md'].map(q=>$(q)).filter(Boolean);
   const colMenus    = ['#colToggles','#colToggles_md'].map(q=>$(q)).filter(Boolean);
-  const filterInputs = ['#filterText'].map(q=>$(q)).filter(Boolean);
-  const filterClearBtns = ['#filterClear'].map(q=>$(q)).filter(Boolean);
+  const filterInputs = ['#filterText','#filterText_m'].map(q=>$(q)).filter(Boolean);
+  const filterClearBtns = ['#filterClear','#filterClear_m'].map(q=>$(q)).filter(Boolean);
 
   /* ===== Config ===== */
   const API_BASE      = window.API_BASE || (()=> {
@@ -731,8 +731,8 @@ function updateStatsCard(rows){
       });
     });
     // Cross-bind column toggles: replicate changes and apply immediately
-    colMenus.forEach(menu => {
-      menu.querySelectorAll('input[type="checkbox"]').forEach(ch => {
+      colMenus.forEach(menu => {
+        menu.querySelectorAll('input[type="checkbox"]').forEach(ch => {
         ch.addEventListener('change', () => {
           const val = String(ch.value || '').toUpperCase();
           const checked = ch.checked;
@@ -746,20 +746,23 @@ function updateStatsCard(rows){
           applyColumnToggles();
         });
       });
-    });
-    filterInputs.forEach(input => {
-      input.addEventListener('input', ev => {
-        FILTER_TEXT = String(ev.target?.value || '').trim();
-        renderCurrentView();
       });
-    });
-    filterClearBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        FILTER_TEXT = '';
-        filterInputs.forEach(inp => { if(inp) inp.value = ''; });
-        renderCurrentView();
+      filterInputs.forEach(input => {
+        input.addEventListener('input', ev => {
+          FILTER_TEXT = String(ev.target?.value || '').trim();
+          filterInputs.forEach(other => {
+            if(other && other !== input) other.value = FILTER_TEXT;
+          });
+          renderCurrentView();
+        });
       });
-    });
+      filterClearBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          FILTER_TEXT = '';
+          filterInputs.forEach(inp => { if(inp) inp.value = ''; });
+          renderCurrentView();
+        });
+      });
     clocks.forEach(clock => {
       if(!clock) return;
       clock.addEventListener('click', toggleClockMode);
