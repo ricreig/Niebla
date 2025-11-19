@@ -272,10 +272,14 @@ async function execute(triggerBtn){
   }
 }
 
+function primaryFlightCode(r){
+  return r.flight_icao||r.flight_iata||r.callsign||r.registration||'';
+}
+
 function dedup(items){
   const m=new Map();
   for(const r of items){
-    const k=[r.flight_iata||'',r.sta_utc||'',r.dep_iata||'',r.arr_iata||''].join('|');
+    const k=[primaryFlightCode(r),r.sta_utc||r.std_utc||'',r.dep_iata||'',r.arr_iata||''].join('|');
     if(!m.has(k)) m.set(k,r);
   }
   return Array.from(m.values());
@@ -284,7 +288,7 @@ function dedup(items){
 function render(){
   syncStatusCheckboxes();
   const rows=STATE.data.filter(r=>STATE.statuses.has((r.status||'').toLowerCase()))
-    .sort((a,b)=>Date.parse(a.eta_utc||a.sta_utc||'2100-01-01')-Date.parse(b.eta_utc||b.sta_utc||'2100-01-01'));
+    .sort((a,b)=>sortTimestamp(a)-sortTimestamp(b));
 
   renderCounters(rows);
 
@@ -314,7 +318,7 @@ function render(){
     const eetTxt = (STATE.type==='departure' && eet!=null) ? String(eet) : '';
     const wxHtml = (STATE.type==='departure') ? buildWx(r) : '';
     tr.innerHTML=`
-      <td class="col-flight">${esc(r.flight_iata||'')}</td>
+      <td class="col-flight">${esc(primaryFlightCode(r))}</td>
       <td class="col-route">${esc(r.dep_iata||'')}→${esc(r.arr_iata||'')}</td>
       <td class="col-est"><span class="${etaClass}">${etaTxt}</span></td>
       <td class="col-status"><span class="badge ${statusBadge}">${esc(statusText)}</span></td>
@@ -350,7 +354,7 @@ function render(){
   reapplyColumnPreferences();
 }
 
-function rowKey(r){return [r.flight_iata||'',r.sta_utc||'',r.dep_iata||'',r.arr_iata||''].join('|');}
+function rowKey(r){return [primaryFlightCode(r),r.sta_utc||r.std_utc||'',r.dep_iata||'',r.arr_iata||''].join('|');}
 function classEditor(key,current){
   const opts=['OPDATA','Aterrizado','Alterno','Emergencia','Cancelado'];
   const isFixed=opts.includes(current);
@@ -377,6 +381,15 @@ function calcDelay(r){
 function calcEET(r){
   if(typeof r.eet_min==='number') return r.eet_min;
   return null;
+}
+
+function sortTimestamp(r){
+  const candidates=[r.eta_utc,r.sta_utc,r.std_utc];
+  for(const c of candidates){
+    const ts=Date.parse(c||'');
+    if(isFinite(ts)) return ts;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 // Build HTML for weather icons.  Uses wx_metar_cat/wx_taf_cat and
