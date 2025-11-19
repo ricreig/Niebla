@@ -254,7 +254,20 @@ function toIsoUtc(isoLike){
   }
 
   /* ===== RMK helpers ===== */
-  function rowKey(r){ return `${r.ID}__${(r.ETA||'').slice(0,16)}__${r.ADEP||''}`; }
+  function rowTimeKey(r){
+    return r.ETA || r.STA || r._ATA || '';
+  }
+  function rowKey(r){
+    const id = r.ID || '—';
+    const ts = rowTimeKey(r);
+    return `${id}__${(ts||'').slice(0,16)}__${r.ADEP||''}`;
+  }
+  function rowSortTs(r){
+    const iso = rowTimeKey(r);
+    if(!iso) return Infinity;
+    const ts = Date.parse(iso);
+    return Number.isFinite(ts) ? ts : Infinity;
+  }
   function getRMK(r){ return RMK_STORE.get(rowKey(r)) || {}; }
 
   /* ===== Normalización de fila ===== */
@@ -409,8 +422,8 @@ function toIsoUtc(isoLike){
           const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
           if(A!==B) return A-B;
         }
-        const A = a.ETA ? Date.parse(a.ETA) : 0;
-        const B = b.ETA ? Date.parse(b.ETA) : 0;
+        const A = rowSortTs(a);
+        const B = rowSortTs(b);
         return A - B;
       });
       return filtered;
@@ -451,8 +464,8 @@ function toIsoUtc(isoLike){
         const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
         if(A!==B) return A-B;
       }
-      const A = a.ETA ? Date.parse(a.ETA) : 0;
-      const B = b.ETA ? Date.parse(b.ETA) : 0;
+      const A = rowSortTs(a);
+      const B = rowSortTs(b);
       return A - B;
     });
     return filtered;
@@ -661,8 +674,8 @@ function updateStatsCard(rows){
         const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
         if(A!==B) return A-B;
       }
-      const A = a.ETA ? Date.parse(a.ETA) : 0;
-      const B = b.ETA ? Date.parse(b.ETA) : 0;
+      const A = rowSortTs(a);
+      const B = rowSortTs(b);
       return A - B;
     });
     renderGrid(rows);

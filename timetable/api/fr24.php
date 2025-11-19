@@ -195,8 +195,9 @@ $from_ts = parse_iso($from_iso);
 $to_ts = $from_ts + max(1, $hours) * 3600;
 $to_iso = gmdate('Y-m-d\TH:i:00\Z', $to_ts);
 
-// Determine date for schedule (UTC date of start)
-$schedule_date = gmdate('Y-m-d', $from_ts);
+// Determine UTC range for schedule lookups
+$range_start = gmdate('Y-m-d H:i:s', $from_ts);
+$range_end   = gmdate('Y-m-d H:i:s', $to_ts);
 
 // Determine IATA code and FR24 direction
 $iata = $arr ?: $dep;
@@ -223,18 +224,21 @@ try {
     $mysqli->set_charset(DB_CHARSET);
     $query = '';
     if ($type === 'arrival') {
-      $query = 'SELECT flight_number AS flight_iata, airline AS airline_name, dep_icao AS dep_iata, dst_icao AS arr_iata, sta_utc, std_utc, delay_min, status FROM flights WHERE dst_icao = ? AND DATE(sta_utc) = ?';
+      $query = 'SELECT flight_number AS flight_iata, callsign AS flight_icao, airline AS airline_name, dep_icao AS dep_iata, dst_icao AS arr_iata, sta_utc, std_utc, delay_min, status '
+             . 'FROM flights WHERE dst_icao = ? AND sta_utc >= ? AND sta_utc < ?';
     } elseif ($type === 'departure') {
-      $query = 'SELECT flight_number AS flight_iata, airline AS airline_name, dep_icao AS dep_iata, dst_icao AS arr_iata, sta_utc, std_utc, delay_min, status FROM flights WHERE dep_icao = ? AND DATE(std_utc) = ?';
+      $query = 'SELECT flight_number AS flight_iata, callsign AS flight_icao, airline AS airline_name, dep_icao AS dep_iata, dst_icao AS arr_iata, sta_utc, std_utc, delay_min, status '
+             . 'FROM flights WHERE dep_icao = ? AND std_utc >= ? AND std_utc < ?';
     } else { // both
-      $query = 'SELECT flight_number AS flight_iata, airline AS airline_name, dep_icao AS dep_iata, dst_icao AS arr_iata, sta_utc, std_utc, delay_min, status FROM flights WHERE (dst_icao = ? AND DATE(sta_utc) = ?) OR (dep_icao = ? AND DATE(std_utc) = ?)';
+      $query = 'SELECT flight_number AS flight_iata, callsign AS flight_icao, airline AS airline_name, dep_icao AS dep_iata, dst_icao AS arr_iata, sta_utc, std_utc, delay_min, status '
+             . 'FROM flights WHERE (dst_icao = ? AND sta_utc >= ? AND sta_utc < ?) OR (dep_icao = ? AND std_utc >= ? AND std_utc < ?)';
     }
     $stmt = $mysqli->prepare($query);
     if ($stmt) {
       if ($type === 'both') {
-        $stmt->bind_param('ssss', $iata, $schedule_date, $iata, $schedule_date);
+        $stmt->bind_param('ssssss', $iata, $range_start, $range_end, $iata, $range_start, $range_end);
       } else {
-        $stmt->bind_param('ss', $iata, $schedule_date);
+        $stmt->bind_param('sss', $iata, $range_start, $range_end);
       }
       if ($stmt->execute()) {
         $result = $stmt->get_result();
@@ -252,7 +256,8 @@ try {
             $stdIso = $ts ? gmdate('c', $ts) : null;
           }
           $scheduleRows[] = [
-            'flight_iata' => $row['flight_iata'],
+            'flight_iata' => $row['flight_iata'] ? strtoupper($row['flight_iata']) : null,
+            'flight_icao' => $row['flight_icao'] ? strtoupper($row['flight_icao']) : null,
             'airline_name' => $row['airline_name'],
             'dep_iata' => strtoupper($row['dep_iata'] ?? ''),
             'arr_iata' => strtoupper($row['arr_iata'] ?? ''),
@@ -345,6 +350,7 @@ if ($liveData && isset($liveData['data']) && is_array($liveData['data'])) {
     }
     $liveRows[$flight] = [
       'flight_iata' => $flight,
+      'flight_icao' => $flight,
       'airline_name' => $airline,
       'dep_iata' => $orig,
       'arr_iata' => $dest,
@@ -358,20 +364,21 @@ $final = [];
 // Map schedule by flight_iata + sta for uniqueness
 $scheduleMap = [];
 foreach ($scheduleRows as $row) {
-  $key = ($row['flight_iata'] ?? '') . '|' . ($row['sta_utc'] ?? '');
+  $flightKey = strtoupper((string)($row['flight_icao'] ?? $row['flight_iata'] ?? ''));
+  $key = $flightKey . '|' . ($row['sta_utc'] ?? '');
   $scheduleMap[$key] = $row;
 }
 
 // Add or update scheduled flights
 foreach ($scheduleMap as $key => $row) {
-  $flightCode = $row['flight_iata'];
+  $flightCode = strtoupper((string)($row['flight_icao'] ?? $row['flight_iata'] ?? ''));
   $sta = $row['sta_utc'];
   $eta = null;
   $status = 'scheduled';
   $delay = $row['delay_min'] ?? null;
   $scheduleStatus = strtolower($row['status'] ?? 'scheduled');
   // Determine if there is live data for this flight
-  if (isset($liveRows[$flightCode])) {
+  if ($flightCode && isset($liveRows[$flightCode])) {
     $live = $liveRows[$flightCode];
     $eta = $live['eta_utc'] ?? null;
     // Detect diversion: if scheduled arrival IATA differs from live arrival
@@ -405,7 +412,8 @@ foreach ($scheduleMap as $key => $row) {
     }
   }
   $final[] = [
-    'flight_iata' => $flightCode,
+    'flight_iata' => $row['flight_iata'] ?? null,
+    'flight_icao' => $row['flight_icao'] ?? null,
     'airline_name' => $row['airline_name'] ?? null,
     'dep_iata' => $row['dep_iata'] ?? null,
     'arr_iata' => $row['arr_iata'] ?? null,
@@ -423,7 +431,7 @@ foreach ($liveRows as $flight => $live) {
   // If flight not in schedule, include as unknown
   $exists = false;
   foreach ($final as $r) {
-    if (isset($r['flight_iata']) && $r['flight_iata'] === $flight) {
+    if ((isset($r['flight_icao']) && $r['flight_icao'] === $flight) || (isset($r['flight_iata']) && $r['flight_iata'] === $flight)) {
       $exists = true; break;
     }
   }
@@ -431,7 +439,8 @@ foreach ($liveRows as $flight => $live) {
     // Live flights not present in the schedule are typically charters or
     // unscheduled operations.  Treat them as active for display purposes.
     $final[] = [
-      'flight_iata' => $live['flight_iata'],
+      'flight_iata' => $live['flight_iata'] ?? null,
+      'flight_icao' => $live['flight_icao'] ?? $live['flight_iata'],
       'airline_name' => $live['airline_name'],
       'dep_iata' => $live['dep_iata'],
       'arr_iata' => $live['arr_iata'],
