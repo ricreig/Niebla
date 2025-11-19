@@ -54,9 +54,17 @@ function dedup_key(array $row): string {
   if ($flight === '' && !empty($row['registration'])) {
     $flight = strtoupper((string)$row['registration']);
   }
-  $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : '';
+  $sta = isset($row['sta_utc']) ? (string)$row['sta_utc'] : (isset($row['std_utc']) ? (string)$row['std_utc'] : '');
   $dep = strtoupper((string)($row['dep_iata'] ?? $row['dep_icao'] ?? ''));
   return $flight . '|' . $sta . '|' . $dep;
+}
+
+function same_service_day(?string $sta, ?string $eta): bool {
+  if (!$sta || !$eta) return true;
+  $staTs = strtotime($sta);
+  $etaTs = strtotime($eta);
+  if (!$staTs || !$etaTs) return true;
+  return gmdate('Y-m-d', $staTs) === gmdate('Y-m-d', $etaTs);
 }
 
 function merge_schedule_rows(array $base, array $secondary): array {
@@ -361,18 +369,18 @@ if ($liveData && isset($liveData['data']) && is_array($liveData['data'])) {
 
 // === Merge schedule and live data ===
 $final = [];
-// Map schedule by flight_iata + sta for uniqueness
+// Map schedule by flight code + scheduled time for uniqueness
 $scheduleMap = [];
 foreach ($scheduleRows as $row) {
   $flightKey = strtoupper((string)($row['flight_icao'] ?? $row['flight_iata'] ?? ''));
-  $key = $flightKey . '|' . ($row['sta_utc'] ?? '');
+  $key = $flightKey . '|' . ($row['sta_utc'] ?? $row['std_utc'] ?? '');
   $scheduleMap[$key] = $row;
 }
 
 // Add or update scheduled flights
 foreach ($scheduleMap as $key => $row) {
   $flightCode = strtoupper((string)($row['flight_icao'] ?? $row['flight_iata'] ?? ''));
-  $sta = $row['sta_utc'];
+  $sta = $row['sta_utc'] ?? $row['std_utc'] ?? null;
   $eta = null;
   $status = 'scheduled';
   $delay = $row['delay_min'] ?? null;
@@ -381,20 +389,23 @@ foreach ($scheduleMap as $key => $row) {
   if ($flightCode && isset($liveRows[$flightCode])) {
     $live = $liveRows[$flightCode];
     $eta = $live['eta_utc'] ?? null;
-    // Detect diversion: if scheduled arrival IATA differs from live arrival
-    $schedArr = strtoupper((string)($row['arr_iata'] ?? ''));
-    $liveArr  = strtoupper((string)($live['arr_iata'] ?? ''));
-    if ($schedArr && $liveArr && $schedArr !== $liveArr) {
-      $status = 'diverted';
-    } else {
-      $status = 'active';
-    }
-    // Compute delay if possible (override DB delay)
-    if ($sta && $eta) {
-      $staTs = strtotime($sta);
-      $etaTs = strtotime($eta);
-      if ($staTs && $etaTs) {
-        $delay = (int)round(($etaTs - $staTs) / 60);
+    $useLive = same_service_day($sta ?? ($row['std_utc'] ?? null), $eta);
+    if ($useLive) {
+      // Detect diversion: if scheduled arrival IATA differs from live arrival
+      $schedArr = strtoupper((string)($row['arr_iata'] ?? ''));
+      $liveArr  = strtoupper((string)($live['arr_iata'] ?? ''));
+      if ($schedArr && $liveArr && $schedArr !== $liveArr) {
+        $status = 'diverted';
+      } else {
+        $status = 'active';
+      }
+      // Compute delay if possible (override DB delay)
+      if ($sta && $eta) {
+        $staTs = strtotime($sta);
+        $etaTs = strtotime($eta);
+        if ($staTs && $etaTs) {
+          $delay = (int)round(($etaTs - $staTs) / 60);
+        }
       }
     }
   } else {
@@ -417,6 +428,7 @@ foreach ($scheduleMap as $key => $row) {
     'airline_name' => $row['airline_name'] ?? null,
     'dep_iata' => $row['dep_iata'] ?? null,
     'arr_iata' => $row['arr_iata'] ?? null,
+    'std_utc' => $row['std_utc'] ?? null,
     'sta_utc' => $sta,
     'eta_utc' => $eta,
     'ata_utc' => null,
@@ -444,6 +456,7 @@ foreach ($liveRows as $flight => $live) {
       'airline_name' => $live['airline_name'],
       'dep_iata' => $live['dep_iata'],
       'arr_iata' => $live['arr_iata'],
+      'std_utc' => null,
       'sta_utc' => null,
       'eta_utc' => $live['eta_utc'],
       'ata_utc' => null,
