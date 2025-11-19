@@ -15,6 +15,8 @@
   // menús de estado y columnas en xs y md
   const statusMenus = ['#statusFilters','#statusFilters_md'].map(q=>$(q)).filter(Boolean);
   const colMenus    = ['#colToggles','#colToggles_md'].map(q=>$(q)).filter(Boolean);
+  const filterInputs = ['#filterText'].map(q=>$(q)).filter(Boolean);
+  const filterClearBtns = ['#filterClear'].map(q=>$(q)).filter(Boolean);
 
   /* ===== Config ===== */
   const API_BASE      = window.API_BASE || (()=> {
@@ -29,7 +31,9 @@
   /* ===== Estado ===== */
   let USE_LOCAL_TIME = false;
   let SORT_MODE = 'ETA'; // 'ETA' | 'SEC'
+  let FILTER_TEXT = '';
   const RMK_STORE = new Map(); // key -> {sec,alt,note,stsOverride}
+  window._baseRows = [];
   window._lastRows = [];
   const AUTO_RANGE_DAYS = 2;
   const REFRESH_MINUTES = Math.max(1, Number(window.TIMETABLE_REFRESH_MINUTES || 5));
@@ -90,7 +94,7 @@ function toIsoUtc(isoLike){
     const now = new Date();
     const midnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
     const startUTC = new Date(midnightUTC.getTime() - (AUTO_RANGE_DAYS - 1) * 86400000);
-    const endUTC = new Date(midnightUTC.getTime() + (24 * 60 * 60 * 1000) - 60000);
+    const endUTC = new Date(midnightUTC.getTime() + (24 * 60 * 60 * 1000) - 1000);
     const rangeHours = Math.max(1, Math.ceil((endUTC.getTime() - startUTC.getTime()) / 3600000));
     const utcDates = [];
     const cursor = new Date(Date.UTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth(), startUTC.getUTCDate()));
@@ -406,6 +410,43 @@ function toIsoUtc(isoLike){
     });
   }
 
+  /* ===== Orden y filtro de texto ===== */
+  function sortRowsInPlace(rows){
+    rows.sort((a,b)=>{
+      if(SORT_MODE==='SEC'){
+        const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
+        if(A!==B) return A-B;
+      }
+      const A = rowSortTs(a);
+      const B = rowSortTs(b);
+      return A - B;
+    });
+    return rows;
+  }
+
+  function rowMatchesFilter(row, q){
+    if(!q) return true;
+    const needle = q.toUpperCase();
+    const fields = [row.ID, row.ADEP, row._ALT]
+      .map(v => (v==null ? '' : String(v)).toUpperCase());
+    return fields.some(val => val.includes(needle));
+  }
+
+  function applyTextFilter(rows){
+    const src = Array.isArray(rows) ? rows : [];
+    const query = (FILTER_TEXT || '').trim();
+    if(!query) return src.slice();
+    return src.filter(r => rowMatchesFilter(r, query));
+  }
+
+  function renderCurrentView(){
+    const base = Array.isArray(window._baseRows) ? window._baseRows.slice() : [];
+    sortRowsInPlace(base);
+    const view = applyTextFilter(base);
+    renderGrid(view);
+    applyColumnToggles();
+  }
+
   /* ===== Orquestador ===== */
   async function loadTimetable(){
     const range = CURRENT_RANGE || computeRangeState();
@@ -429,16 +470,7 @@ function toIsoUtc(isoLike){
       const allow = statusWhitelist();
       const filtered = rows.filter(r => allow.has(effectiveSTS6(r)));
       // sort by ETA or SEC
-      filtered.sort((a,b)=>{
-        if(SORT_MODE==='SEC'){
-          const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
-          if(A!==B) return A-B;
-        }
-        const A = rowSortTs(a);
-        const B = rowSortTs(b);
-        return A - B;
-      });
-      return filtered;
+      return sortRowsInPlace(filtered);
     }
 
     // Default provider: AVS timetable
@@ -471,16 +503,7 @@ function toIsoUtc(isoLike){
     const allow = statusWhitelist();
     const filtered = rows.filter(r => allow.has(effectiveSTS6(r)));
     // 7) orden
-    filtered.sort((a,b)=>{
-      if(SORT_MODE==='SEC'){
-        const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
-        if(A!==B) return A-B;
-      }
-      const A = rowSortTs(a);
-      const B = rowSortTs(b);
-      return A - B;
-    });
-    return filtered;
+    return sortRowsInPlace(filtered);
   }
 
   /* ===== Stats ===== */
@@ -669,10 +692,12 @@ function updateStatsCard(rows){
     if(btnEl) setBtnLoading(btnEl);
     try{
       const rows = await loadTimetable();
-      renderGrid(rows);
-      applyColumnToggles();
+      window._baseRows = rows;
+      renderCurrentView();
     }catch(e){
       tbody.innerHTML = `<tr><td colspan="8" class="text-danger">Error timetable: ${String(e.message||e)}</td></tr>`;
+      window._baseRows = [];
+      window._lastRows = [];
     }finally{
       REFRESHING = false;
       if(btnEl) clearBtnLoading(btnEl);
@@ -680,18 +705,7 @@ function updateStatsCard(rows){
   };
   window.toggleSort = function(){
     SORT_MODE = (SORT_MODE==='ETA') ? 'SEC' : 'ETA';
-    const rows = (window._lastRows||[]).slice();
-    rows.sort((a,b)=>{
-      if(SORT_MODE==='SEC'){
-        const A = a._SEC ?? Infinity, B = b._SEC ?? Infinity;
-        if(A!==B) return A-B;
-      }
-      const A = rowSortTs(a);
-      const B = rowSortTs(b);
-      return A - B;
-    });
-    renderGrid(rows);
-    applyColumnToggles();
+    renderCurrentView();
   };
 
   /* ===== Listeners ===== */
@@ -731,6 +745,19 @@ function updateStatsCard(rows){
           renderGrid(window._lastRows ? window._lastRows.slice() : []);
           applyColumnToggles();
         });
+      });
+    });
+    filterInputs.forEach(input => {
+      input.addEventListener('input', ev => {
+        FILTER_TEXT = String(ev.target?.value || '').trim();
+        renderCurrentView();
+      });
+    });
+    filterClearBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        FILTER_TEXT = '';
+        filterInputs.forEach(inp => { if(inp) inp.value = ''; });
+        renderCurrentView();
       });
     });
     clocks.forEach(clock => {

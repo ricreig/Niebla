@@ -20,15 +20,15 @@
   <!-- Estilos del sitio -->
   <!-- Cache buster to ensure clients fetch the latest assets after deployments -->
   <script>
-    window.SIGMA_ASSET_VERSION = '20251114';
+    window.SIGMA_ASSET_VERSION = '20251122';
   </script>
-  <link href="./assets/css/styles.css?v=20251114" rel="stylesheet">
-  <link href="./assets/css/ops.css?v=20251114" rel="stylesheet">
-  <link href="./assets/css/ui.css?v=20251114" rel="stylesheet">
-  <link href="./assets/css/metar.css?v=20251114" rel="stylesheet">
-  <link href="./assets/css/risk.css?v=20251114" rel="stylesheet">
-  <link href="./assets/css/runway.css?v=20251114" rel="stylesheet">
-  <link rel="preload" href="./assets/ICAORWYID.ttf?v=20251114" as="font" type="font/ttf" crossorigin>
+  <link href="./assets/css/styles.css?v=20251122" rel="stylesheet">
+  <link href="./assets/css/ops.css?v=20251122" rel="stylesheet">
+  <link href="./assets/css/ui.css?v=20251122" rel="stylesheet">
+  <link href="./assets/css/metar.css?v=20251122" rel="stylesheet">
+  <link href="./assets/css/risk.css?v=20251122" rel="stylesheet">
+  <link href="./assets/css/runway.css?v=20251122" rel="stylesheet">
+  <link rel="preload" href="./assets/ICAORWYID.ttf?v=20251122" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
 <div class="container-fluid p-2">
@@ -129,6 +129,18 @@
   </div>
 </div>
 
+  <div class="mt-2">
+    <div class="row g-2 justify-content-md-end">
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="filterText" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
+          <button id="filterClear" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </header>
 
   <!-- RUNWAY + STATS -->
@@ -218,8 +230,8 @@
 <script>window.TIMETABLE_PROVIDER='flights';</script>
 <script>window.TIMETABLE_REFRESH_MINUTES=5;</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script defer src="./assets/js/wx.js?v=20251114"></script>
-<script defer src="./assets/js/runway.js?v=20251114"></script>
-<script defer src="./assets/js/app_ops.js?v=20251114"></script>
+<script defer src="./assets/js/wx.js?v=20251122"></script>
+<script defer src="./assets/js/runway.js?v=20251122"></script>
+<script defer src="./assets/js/app_ops.js?v=20251122"></script>
 </body>
 </html>
