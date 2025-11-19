@@ -83,36 +83,33 @@ function toIsoUtc(isoLike){
     btnEl.disabled = false;
   }
 
-  function localRangeLabel(date){
-    return `${pad2(date.getDate())}/${pad2(date.getMonth()+1)} ${pad2(date.getHours())}:${pad2(date.getMinutes())} LCL`;
-  }
-  function utcRangeLabel(date){
-    return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth()+1)}-${pad2(date.getUTCDate())} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}Z`;
+  function utcHumanRangeLabel(date){
+    return `${pad2(date.getUTCDate())}/${pad2(date.getUTCMonth()+1)} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())} UTC`;
   }
   function computeRangeState(){
     const now = new Date();
-    const midnightLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const startLocal = new Date(midnightLocal.getTime() - (AUTO_RANGE_DAYS - 1) * 86400000);
-    const endLocal = new Date(midnightLocal.getTime() + (24 * 60 * 60 * 1000) - 60000);
-    const rangeHours = Math.max(1, Math.ceil((endLocal.getTime() - startLocal.getTime()) / 3600000));
-    const localDates = [];
-    const cursor = new Date(startLocal.getFullYear(), startLocal.getMonth(), startLocal.getDate());
-    const endCursor = new Date(midnightLocal.getFullYear(), midnightLocal.getMonth(), midnightLocal.getDate());
+    const midnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+    const startUTC = new Date(midnightUTC.getTime() - (AUTO_RANGE_DAYS - 1) * 86400000);
+    const endUTC = new Date(midnightUTC.getTime() + (24 * 60 * 60 * 1000) - 60000);
+    const rangeHours = Math.max(1, Math.ceil((endUTC.getTime() - startUTC.getTime()) / 3600000));
+    const utcDates = [];
+    const cursor = new Date(Date.UTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth(), startUTC.getUTCDate()));
+    const endCursor = new Date(Date.UTC(midnightUTC.getUTCFullYear(), midnightUTC.getUTCMonth(), midnightUTC.getUTCDate()));
     while(cursor <= endCursor){
-      localDates.push(`${cursor.getFullYear()}-${pad2(cursor.getMonth()+1)}-${pad2(cursor.getDate())}`);
-      cursor.setDate(cursor.getDate()+1);
+      utcDates.push(`${cursor.getUTCFullYear()}-${pad2(cursor.getUTCMonth()+1)}-${pad2(cursor.getUTCDate())}`);
+      cursor.setUTCDate(cursor.getUTCDate()+1);
     }
     return {
-      startIso: startLocal.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-      endIso: endLocal.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      startIso: startUTC.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      endIso: endUTC.toISOString().replace(/\.\d{3}Z$/, 'Z'),
       hours: rangeHours,
-      localDates: Array.from(new Set(localDates))
+      utcDates: Array.from(new Set(utcDates))
     };
   }
   function updateRangeLabels(range){
     const start = new Date(range.startIso);
     const end   = new Date(range.endIso);
-    const label = `Ventana automática: ${localRangeLabel(start)} → ${localRangeLabel(end)} · ${utcRangeLabel(start)} → ${utcRangeLabel(end)}`;
+    const label = `Ventana automática: ${utcHumanRangeLabel(start)} → ${utcHumanRangeLabel(end)}`;
     rangeHints.forEach(el => { if(el) el.textContent = label; });
   }
   function scheduleAutoRefresh(){
@@ -420,7 +417,7 @@ function toIsoUtc(isoLike){
     }
 
     // Default provider: AVS timetable
-    const dates = (range.localDates && range.localDates.length) ? range.localDates : [new Date().toISOString().slice(0,10)];
+    const dates = (range.utcDates && range.utcDates.length) ? range.utcDates : [new Date().toISOString().slice(0,10)];
     // 2) fetch por día (AVS)
     const chunks = await Promise.all(dates.map(loadAVSForDate));
     // 3) aplanar resultados y eliminar duplicados en función de clave (ID+ETA+ADEP)
