@@ -343,8 +343,8 @@ function toIsoUtc(isoLike){
 
   /* ===== Fuente integrada de vuelos (fr24 + avs) ===== */
   async function loadFlights(hours, startIso){
-    // fallback to 12 hours if invalid
-    const h = (typeof hours==='number' && hours>0) ? hours : 12;
+    // fallback to 24 hours if invalid
+    const h = (typeof hours==='number' && hours>0) ? hours : 24;
     // Construct URL to flights.php with optional start parameter (ISO8601Z).  When
     // querying past days, the start parameter allows the backend to switch
     // automatically from the AVS+FR24 timetable to the FR24 summary (which has
