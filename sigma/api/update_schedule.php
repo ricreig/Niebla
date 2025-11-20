@@ -128,11 +128,13 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
     // filtering with flight_date + arrival airport.
     $endpoint = 'flights';
     $baseParams = [
-        'arr_iata'      => $airportIata,
-        'arr_icao'      => $airportIcao,
-        'flight_date'   => $targetDate,
-        'flight_status' => 'scheduled,active,landed,diverted,cancelled',
+        'arr_iata'    => $airportIata,
+        'arr_icao'    => $airportIcao,
+        'flight_date' => $targetDate,
     ];
+
+    $statusFilter = 'scheduled,active,landed,diverted,cancelled';
+    $useStatusFilter = true;
 
     $limit = 100;
     $offset = 0;
@@ -141,8 +143,24 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
 
     do {
         $params = $baseParams + ['limit' => $limit, 'offset' => $offset];
+        if ($useStatusFilter) {
+            $params['flight_status'] = $statusFilter;
+        }
+
         $res = avs_get($endpoint, $params, $ttl);
         if (!($res['ok'] ?? false)) {
+            $is400 = ($res['error'] ?? '') === 'avs_http_400';
+            if ($is400 && $useStatusFilter) {
+                // Algunos planes de AviationStack regresan 400 si se envía
+                // `flight_status` con valores múltiples. Reintentamos sin
+                // el filtro para no abortar el cron.
+                $useStatusFilter = false;
+                $offset = 0;
+                $allRows = [];
+                $page = 0;
+                continue;
+            }
+
             return [
                 'ok'     => false,
                 'error'  => $res['error'] ?? 'avs_error',
@@ -164,7 +182,7 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
         }
     } while ($count === $limit);
 
-    return ['ok' => true, 'rows' => $allRows, 'endpoint' => $endpoint];
+    return ['ok' => true, 'rows' => $allRows, 'endpoint' => $endpoint, 'status_filter' => $useStatusFilter];
 }
 
 $cfg = cfg();
