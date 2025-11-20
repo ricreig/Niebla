@@ -65,10 +65,11 @@ function map_status($s): string {
   if (in_array($t, ['landed','arrived','arrival'], true)) return 'landed';
   if (in_array($t, ['active','airborne','en-route','enroute'], true)) return 'active';
   if (in_array($t, ['taxi','taxiing'], true)) return 'taxi';
-  if (in_array($t, ['diverted','alternate','rerouted'], true)) return 'diverted';
+  if (in_array($t, ['diverted','alternate','rerouted','redirected'], true)) return 'diverted';
   if (in_array($t, ['incident','accident','irregular'], true)) return 'incident';
   if (in_array($t, ['cancelled','canceled','cancld','cncl'], true)) return 'cancelled';
   if (in_array($t, ['scheduled','sched','programado'], true)) return 'scheduled';
+  if ($t === '' || $t === 'unknown') return 'unknown';
   return $t ?: 'scheduled';
 }
 

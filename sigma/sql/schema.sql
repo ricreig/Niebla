@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS flights(
   sta_utc DATETIME,
   delay_min INT DEFAULT 0,
   status VARCHAR(20) DEFAULT 'scheduled',
+  codeshares_json TEXT NULL,
   UNIQUE KEY uniq_fn_sta (flight_number, sta_utc)
 ) ENGINE=InnoDB;
 
