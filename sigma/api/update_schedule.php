@@ -118,46 +118,21 @@ function extract_numeric_suffix(array $candidates): string {
 }
 
 /**
- * Fetch all timetable rows for the given airport/date from AviationStack,
- * transparently handling pagination and endpoint selection (timetable vs
- * flights) depending on the target date.  Returns an array with keys
- * `ok` (bool), `rows` (array) and optional `error`/`message`.
+ * Fetch all timetable rows for the given airport/date from AviationStack
+ * using the flights endpoint (supports historical and same-day queries).
+ * Returns an array with keys `ok` (bool), `rows` (array) and optional
+ * `error`/`message`.
  */
 function avs_fetch_day(string $airportIata, string $airportIcao, string $targetDate, DateTimeZone $tzLocal, int $ttl): array {
-    $todayLocal = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
-    $endpoint = 'timetable';
-    $baseParams = [];
-
-    $statusesCsv = 'scheduled,active,landed,diverted,cancelled';
-    if ($targetDate === $todayLocal) {
-        $baseParams = [
-            'type'     => 'arrival',
-            'iataCode' => $airportIata,
-            'date'     => $targetDate,
-            'flight_status' => $statusesCsv,
-        ];
-    } else {
-        // Historical (previous day) – AviationStack requires the flights endpoint
-        // filtered by arr_iata and flight_date.  We also request all statuses so
-        // cancelled/diverted flights persist in SIGMA even after landing.
-        $baseParams = [
-            'arr_iata'     => $airportIata,
-            'arr_icao'     => $airportIcao,
-            'flight_date'  => $targetDate,
-            'flight_status'=> $statusesCsv,
-        ];
-        $endpoint = 'flights';
-    }
-
-    // Provide a deterministic date range to avoid AviationStack shifting windows
-    try {
-        $localStart = new DateTimeImmutable($targetDate . ' 00:00:00', $tzLocal);
-    } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'invalid_date', 'message' => $e->getMessage()];
-    }
-    $localEnd   = $localStart->modify('+1 day -1 minute');
-    $baseParams['date_from'] = $localStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
-    $baseParams['date_to']   = $localEnd->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+    // AviationStack flights endpoint: supports same-day and historical by
+    // filtering with flight_date + arrival airport.
+    $endpoint = 'flights';
+    $baseParams = [
+        'arr_iata'      => $airportIata,
+        'arr_icao'      => $airportIcao,
+        'flight_date'   => $targetDate,
+        'flight_status' => 'scheduled,active,landed,diverted,cancelled',
+    ];
 
     $limit = 100;
     $offset = 0;
