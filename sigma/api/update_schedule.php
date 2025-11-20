@@ -123,7 +123,7 @@ function extract_numeric_suffix(array $candidates): string {
  * Returns an array with keys `ok` (bool), `rows` (array) and optional
  * `error`/`message`.
  */
-function avs_fetch_day(string $airportIata, string $airportIcao, string $targetDate, DateTimeZone $tzLocal, int $ttl): array {
+function avs_fetch_day(string $airportIata, string $airportIcao, string $targetDate, int $ttl): array {
     // AviationStack flights endpoint: supports same-day and historical by
     // filtering with flight_date + arrival airport.
     $endpoint = 'flights';
@@ -170,14 +170,7 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
 $cfg = cfg();
 $iata = strtoupper((string)($cfg['IATA'] ?? 'TIJ'));
 $icao = strtoupper((string)($cfg['ICAO'] ?? 'MMTJ'));
-$tzName = $cfg['timezone'] ?? 'America/Tijuana';
-
-try {
-    $tzLocal = new DateTimeZone($tzName);
-} catch (Throwable $e) {
-    $tzLocal = new DateTimeZone('America/Tijuana');
-}
-$tzUtc = new DateTimeZone('UTC');
+$tzFetch = new DateTimeZone('UTC');
 
 $cliArgs = $_SERVER['argv'] ?? [];
 if (!is_array($cliArgs)) {
@@ -200,7 +193,7 @@ if ($argDate === '') {
 }
 $date = trim((string)$argDate);
 if ($date === '') {
-    $date = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
+    $date = (new DateTimeImmutable('now', $tzFetch))->format('Y-m-d');
 }
 
 $rangeDays = 2;
@@ -222,13 +215,13 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     exit(1);
 }
 
-$todayLocal = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
-if ($date > $todayLocal) {
-    $date = $todayLocal;
+$todayFetch = (new DateTimeImmutable('now', $tzFetch))->format('Y-m-d');
+if ($date > $todayFetch) {
+    $date = $todayFetch;
 }
 
 try {
-    $anchor = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
+    $anchor = new DateTimeImmutable($date . ' 00:00:00', $tzFetch);
 } catch (Throwable $e) {
     sigma_stderr("[update_schedule] unable to build local start for $date: {$e->getMessage()}\n");
     exit(1);
@@ -238,7 +231,7 @@ $datesToFetch = [];
 for ($i = $rangeDays - 1; $i >= 0; $i--) {
     $cursor = $anchor->modify('-' . $i . ' day');
     $cursorStr = $cursor->format('Y-m-d');
-    if ($cursorStr > $todayLocal) {
+    if ($cursorStr > $todayFetch) {
         continue;
     }
     $datesToFetch[$cursorStr] = true;
@@ -254,7 +247,7 @@ $ttl = (isset($_GET['nocache']) || in_array('--nocache', $cliArgs, true)) ? 0 : 
 $fetchedRows = [];
 $fetchErrors = [];
 foreach ($datesToFetch as $cursorDate) {
-    $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $tzLocal, $ttl);
+    $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $ttl);
     if (!($cursorRes['ok'] ?? false)) {
         $fetchErrors[] = sprintf('date=%s err=%s', $cursorDate, $cursorRes['error'] ?? 'unknown');
         continue;
@@ -401,12 +394,12 @@ foreach ($fetchedRows as [$targetDate, $row]) {
     $etaUtcDt = parse_time_utc($arr['estimated'] ?? $arr['estimatedTime'] ?? $arr['estimated_runway'] ?? null);
     $ataUtcDt = parse_time_utc($arr['actual'] ?? $arr['actualTime'] ?? $arr['actual_runway'] ?? null);
 
-    $include = ($staUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $targetDate);
+    $include = ($staUtcDt->setTimezone($tzFetch)->format('Y-m-d') === $targetDate);
     if (!$include && $etaUtcDt) {
-        $include = ($etaUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $targetDate);
+        $include = ($etaUtcDt->setTimezone($tzFetch)->format('Y-m-d') === $targetDate);
     }
     if (!$include && $ataUtcDt) {
-        $include = ($ataUtcDt->setTimezone($tzLocal)->format('Y-m-d') === $targetDate);
+        $include = ($ataUtcDt->setTimezone($tzFetch)->format('Y-m-d') === $targetDate);
     }
     if (!$include) {
         $skippedOutOfRange++;
@@ -461,11 +454,11 @@ foreach ($fetchedRows as [$targetDate, $row]) {
 }
 
 $summary = sprintf(
-    '[update_schedule] airport=%s tz=%s dates=%s (today_local=%s) total_api=%d inserted=%d updated=%d skipped_codeshare=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d errors=%s',
+    '[update_schedule] airport=%s tz=%s dates=%s (today_anchor=%s) total_api=%d inserted=%d updated=%d skipped_codeshare=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d errors=%s',
     $iata,
-    $tzLocal->getName(),
+    $tzFetch->getName(),
     implode(',', $datesToFetch),
-    $todayLocal,
+    $todayFetch,
     $totalRows,
     $inserted,
     $updated,
