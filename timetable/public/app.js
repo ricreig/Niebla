@@ -287,8 +287,9 @@ function dedup(items){
 
 function render(){
   syncStatusCheckboxes();
-  const rows=STATE.data.filter(r=>STATE.statuses.has((r.status||'').toLowerCase()))
-    .sort((a,b)=>sortTimestamp(a)-sortTimestamp(b));
+  const rows=STATE.data
+    .filter(r=>STATE.statuses.has((r.status||'').toLowerCase()))
+    .sort(compareByTimestampDesc);
 
   renderCounters(rows);
 
@@ -390,6 +391,15 @@ function sortTimestamp(r){
     if(isFinite(ts)) return ts;
   }
   return Number.POSITIVE_INFINITY;
+}
+
+function compareByTimestampDesc(a,b){
+  const ta=sortTimestamp(a), tb=sortTimestamp(b);
+  const aValid=isFinite(ta), bValid=isFinite(tb);
+  if(aValid && bValid) return tb-ta; // newer/closer flights first
+  if(!aValid && !bValid) return 0; // both missing timestamps
+  if(!aValid) return 1; // push missing timestamps down
+  return -1;
 }
 
 // Build HTML for weather icons.  Uses wx_metar_cat/wx_taf_cat and
