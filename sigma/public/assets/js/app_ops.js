@@ -91,8 +91,13 @@ function toIsoUtc(isoLike){
   }
   function computeRangeState(){
     const now = new Date();
-    const startUTC = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24h hacia atrás desde ahora UTC
-    const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    const startLocal = new Date(now);
+    startLocal.setHours(0,0,0,0); // inicio de ayer en hora local
+    startLocal.setDate(startLocal.getDate() - 1);
+    const endLocal = new Date(now);
+    endLocal.setHours(23,59,59,999); // fin de hoy en hora local
+    const startUTC = new Date(startLocal.toISOString());
+    const endUTC = new Date(endLocal.toISOString());
     const rangeHours = Math.max(1, Math.ceil((endUTC.getTime() - startUTC.getTime()) / 3600000));
     const utcDates = [];
     const cursor = new Date(Date.UTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth(), startUTC.getUTCDate()));

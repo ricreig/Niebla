@@ -152,15 +152,18 @@ if ($start) {
 // Determina la ventana solicitada (timestamps UTC)
 $effectiveStartIso = $startIso;
 if ($startIso === null) {
-  $nowUtc       = new DateTimeImmutable('now', $tzUtc);
-  $fromUtc      = $nowUtc->modify('-24 hours');
-  $endOfDayUtc  = $nowUtc->setTime(23, 59, 59);
+  // Ventana automática: [inicio de ayer (hora local), fin de hoy (hora local)]
+  $nowLocal     = new DateTimeImmutable('now', $tzLocal);
+  $startLocal   = $nowLocal->setTime(0, 0, 0)->modify('-1 day');
+  $endLocal     = $nowLocal->setTime(23, 59, 59);
+  $fromUtc      = $startLocal->setTimezone($tzUtc);
+  $endOfDayUtc  = $endLocal->setTimezone($tzUtc);
   $windowStartTs  = $fromUtc->getTimestamp();
   $windowEndTs    = $endOfDayUtc->getTimestamp();
   $windowStartIso = $fromUtc->format('c');
   $windowEndIso   = $endOfDayUtc->format('c');
   $effectiveStartIso = $fromUtc->format('Y-m-d\TH:i:s\Z');
-  // Ajustar horas para cubrir toda la ventana hasta el fin del día UTC.
+  // Ajustar horas para cubrir toda la ventana hasta el fin del día local convertido a UTC.
   $hoursWindow = (int)ceil(($windowEndTs - $windowStartTs) / 3600);
   if ($hoursWindow > $hours) {
     $hours = $hoursWindow;
