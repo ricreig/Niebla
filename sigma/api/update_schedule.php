@@ -693,7 +693,9 @@ try {
     exit(1);
 }
 
-$datesToFetch = [$anchor->format('Y-m-d')];
+$requestedDate = $anchor->format('Y-m-d');
+
+$datesToFetch = [$requestedDate];
 $flightsDate = $anchor->modify('-1 day')->format('Y-m-d');
 $fr24WindowStart = (new DateTimeImmutable($date . ' 00:00:00', $tzLocal))->setTimezone($tzUtc);
 $fr24WindowEnd = $fr24WindowStart->modify('+1 day');
@@ -704,8 +706,7 @@ $rawRows = [];
 $fetchErrors = [];
 $fetchedPerDate = [];
 $fetchedTimetable = 0;
-$effectiveDate = $datesToFetch[0] ?? $date;
-$timetableDate = $effectiveDate;
+$timetableDate = $requestedDate;
 
 $ttRes = avs_get('timetable', [
     'iataCode' => $iata,
