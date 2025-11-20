@@ -487,4 +487,27 @@ $summary = sprintf(
     $fetchErrors ? implode(';', $fetchErrors) : 'none'
 );
 
-sigma_stdout($summary . "\n");
+$payload = [
+    'ok' => true,
+    'summary' => $summary,
+    'stats' => [
+        'airport' => $iata,
+        'tz' => $tzFetch->getName(),
+        'dates' => $datesToFetch,
+        'today_anchor' => $todayFetch,
+        'fetched' => $totalRows,
+        'inserted' => $inserted,
+        'updated' => $updated,
+        'skipped_codeshare' => $skippedCodeshare,
+        'skipped_no_sta' => $skippedNoSta,
+        'skipped_no_flight' => $skippedNoFlight,
+        'skipped_out_of_range' => $skippedOutOfRange,
+        'errors' => $fetchErrors,
+    ],
+];
+
+if (PHP_SAPI === 'cli') {
+    sigma_stdout($summary . "\n");
+} else {
+    json_response($payload);
+}
