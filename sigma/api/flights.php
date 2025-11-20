@@ -335,7 +335,7 @@ if ($use_summary) {
         $flightNum = $m[1];
       }
 
-      $statusRaw = strtolower((string)($r['status'] ?? 'scheduled'));
+      $statusRaw = map_status((string)($r['status'] ?? 'scheduled'));
       $delay  = is_numeric($r['delay_min'] ?? null) ? (int)$r['delay_min'] : 0;
       // If the flight is currently active/airborne and has no scheduled arrival, classify as taxi (pre-departure)
       if ($statusRaw === 'active' && !$sta) {
