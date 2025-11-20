@@ -684,8 +684,6 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     exit(1);
 }
 
-$todayFetch = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
-
 try {
     $anchor = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
 } catch (Throwable $e) {
@@ -706,7 +704,7 @@ $rawRows = [];
 $fetchErrors = [];
 $fetchedPerDate = [];
 $fetchedTimetable = 0;
-$timetableDate = $requestedDate;
+$timetableDate = $requestedDate; // honor requested date rather than current day
 
 $ttRes = avs_get('timetable', [
     'iataCode' => $iata,
@@ -1015,11 +1013,11 @@ if ($frRes['ok'] ?? false) {
  */
 
 $summary = sprintf(
-    '[update_schedule] airport=%s tz=%s dates=%s (today_anchor=%s) total_api=%d persisted=%d inserted=%d updated=%d merged_codeshares=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d timetable=%d flights=%s fr24=%d/%d/%d/%d errors=%s',
+    '[update_schedule] airport=%s tz=%s dates=%s (requested_date=%s) total_api=%d persisted=%d inserted=%d updated=%d merged_codeshares=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d timetable=%d flights=%s fr24=%d/%d/%d/%d errors=%s',
     $iata,
     $tzLocal->getName(),
     implode(',', $datesToFetch),
-    $todayFetch,
+    $requestedDate,
     $totalApiRows,
     $totalPersisted,
     $inserted,
@@ -1044,7 +1042,7 @@ $payload = [
         'airport' => $iata,
         'tz' => $tzLocal->getName(),
         'dates' => $datesToFetch,
-        'today_anchor' => $todayFetch,
+        'requested_date' => $requestedDate,
         'fetched' => $totalApiRows,
         'persisted' => $totalPersisted,
         'inserted' => $inserted,
