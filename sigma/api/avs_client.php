@@ -12,7 +12,11 @@ function avs_get(string $endpoint, array $params = [], int $ttl = 60): array {
   $cacheKey  = $endpoint.'?'.http_build_query($params);
   $hash      = substr(hash('sha256', $cacheKey), 0, 32);
   $cacheDir  = __DIR__.'/cache';
-  if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
+  if (!is_dir($cacheDir)) {
+    if (!@mkdir($cacheDir, 0755, true) && !is_dir($cacheDir)) {
+      sigma_stderr("[avs_client] cannot create cache dir {$cacheDir}\n");
+    }
+  }
   $cacheFile = $cacheDir.'/avs_'.$hash.'.json';
 
   if (is_file($cacheFile) && (time() - filemtime($cacheFile) < $ttl)) {
@@ -50,7 +54,9 @@ function avs_get(string $endpoint, array $params = [], int $ttl = 60): array {
     ];
   }
 
-  @file_put_contents($cacheFile, $raw);
+  if (@file_put_contents($cacheFile, $raw) === false) {
+    sigma_stderr("[avs_client] failed to write cache file {$cacheFile}\n");
+  }
   $j = json_decode($raw, true);
   if (!is_array($j)) return ['ok'=>false,'error'=>'avs_json','url'=>$url,'body'=>substr($raw,0,500)];
 

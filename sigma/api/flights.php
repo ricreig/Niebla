@@ -339,8 +339,8 @@ if ($use_summary) {
 
       $statusRaw = map_status((string)($r['status'] ?? 'scheduled'));
       $delay  = is_numeric($r['delay_min'] ?? null) ? (int)$r['delay_min'] : 0;
-      // If the flight is currently active/airborne and has no scheduled arrival, classify as taxi (pre-departure)
-      if ($statusRaw === 'active' && !$sta) {
+      // Active flight without ETA: treat as taxi (on ground with no ETA calc yet)
+      if ($statusRaw === 'active' && !$eta) {
         $statusRaw = 'taxi';
       }
       $out[] = [
@@ -409,9 +409,9 @@ if ($use_summary) {
     $status = map_status(
       find_key_deep($r, ['status','state','flight_status']) ?? 'scheduled'
     );
-    // If status is active and there is no useful schedule/ETA information, treat as taxi.
-    // Keep the flight marked as active when we still have an ETA to show it in the grid.
-    if ($status === 'active' && !$sta && !$eta) {
+    // Taxi logic: only mark as taxi when the flight is active but still has no ETA available.
+    // If an ETA exists, keep it as active/enroute for the grid.
+    if ($status === 'active' && !$eta) {
       $status = 'taxi';
     }
     $delay  = (int)(find_key_deep((array)$arrival, ['delay','delayed','delay_min']) ?? 0);
