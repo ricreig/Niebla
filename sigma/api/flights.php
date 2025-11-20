@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/lib/timetable_helpers.php';
 
 /* ========== Utilidades sin dependencias externas ========== */
@@ -114,6 +115,9 @@ function row_within_window(array $row, int $startTs, int $endTs): bool {
 /* ========== Entrada ========== */
 // Number of hours to search. Defaults to 24 if not provided or invalid.
 $hours = int_param('hours', 24);
+$cfg   = cfg();
+$tzLocal = new DateTimeZone($cfg['timezone'] ?? 'America/Tijuana');
+$tzUtc   = new DateTimeZone('UTC');
 
 // Optional start time (ISO8601 or 'now'). When provided, the API will
 // determine whether to use the local timetable (AVS + FR24 live) or
@@ -121,29 +125,48 @@ $hours = int_param('hours', 24);
 // requested window ends before the beginning of the current UTC day, the
 // timetable table will not have schedules (aviationstack only provides
 // current-day), so we fetch historical activity via the FR24 summary.
-$start = $_GET['start'] ?? null;
+$start = $_GET['start'] ?? ($_GET['from'] ?? null);
 // Normalise start parameter; handle 'now' specially.
 $use_summary = false;
 $startIso = null;
-if ($start && strtolower($start) !== 'now') {
-  // Ensure Z suffix (UTC). Accept both with and without trailing timezone offset.
-  $startIso = preg_match('/(?:Z|[+\-]\d{2}:?\d{2})$/i', $start) ? $start : $start.'Z';
-  $ts = strtotime($startIso);
-  if ($ts !== false) {
-    $startOfToday = strtotime(gmdate('Y-m-d').' 00:00:00 UTC');
-    if ($startOfToday !== false) {
-      $endTs = $ts + ($hours * 3600);
-      if ($endTs <= $startOfToday) {
-        $use_summary = true;
+if ($start) {
+  if (strtolower($start) === 'now') {
+    $startIso = gmdate('c');
+  } else {
+    // Ensure Z suffix (UTC). Accept both with and without trailing timezone offset.
+    $startIso = preg_match('/(?:Z|[+\-]\d{2}:?\d{2})$/i', $start) ? $start : $start.'Z';
+    $ts = strtotime($startIso);
+    if ($ts !== false) {
+      $startOfToday = strtotime(gmdate('Y-m-d').' 00:00:00 UTC');
+      if ($startOfToday !== false) {
+        $endTs = $ts + ($hours * 3600);
+        if ($endTs <= $startOfToday) {
+          $use_summary = true;
+        }
       }
     }
   }
 }
 
 // Determina la ventana solicitada (timestamps UTC)
-[$windowStartTs, $windowEndTs] = window_bounds($hours, $startIso);
-$windowStartIso = gmdate('c', $windowStartTs);
-$windowEndIso   = gmdate('c', $windowEndTs);
+$effectiveStartIso = $startIso;
+if ($startIso === null) {
+  $nowLocal    = new DateTimeImmutable('now', $tzLocal);
+  $fromLocal   = $nowLocal->setTime(0, 0, 0);
+  $hoursWindow = $hours > 0 ? $hours : 24;
+  $toLocal     = $fromLocal->modify("+{$hoursWindow} hours");
+  $fromUtc     = $fromLocal->setTimezone($tzUtc);
+  $toUtc       = $toLocal->setTimezone($tzUtc);
+  $windowStartTs = $fromUtc->getTimestamp();
+  $windowEndTs   = $toUtc->getTimestamp();
+  $windowStartIso = $fromUtc->format('c');
+  $windowEndIso   = $toUtc->format('c');
+  $effectiveStartIso = $fromUtc->format('Y-m-d\TH:i:s\Z');
+} else {
+  [$windowStartTs, $windowEndTs] = window_bounds($hours, $startIso);
+  $windowStartIso = gmdate('c', $windowStartTs);
+  $windowEndIso   = gmdate('c', $windowEndTs);
+}
 
 /* ========== Recolección de vuelos ========== */
 // Siempre construimos una lista de vuelos en $out.  Dependiendo del valor
@@ -257,9 +280,9 @@ if ($use_summary) {
   // ================= Combined timetable (current day) ==================
   // Construct the URL to the combined timetable proxy.  Use provided start if set; otherwise default to 'now'.
   $startParam = 'now';
-  if ($startIso) {
+  if ($effectiveStartIso) {
     // encode ISO start; remove milliseconds if present
-    $startParam = urlencode($startIso);
+    $startParam = urlencode($effectiveStartIso);
   }
   $frUrl = origin_base()."/timetable/api/fr24.php?arr_iata=TIJ&type=arrival&start={$startParam}&hours={$hours}&ttl=5";
   $ctx  = stream_context_create(['http'=>['timeout'=>8]]);
