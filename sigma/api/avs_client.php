@@ -53,6 +53,12 @@ function avs_get(string $endpoint, array $params = [], int $ttl = 60): array {
   @file_put_contents($cacheFile, $raw);
   $j = json_decode($raw, true);
   if (!is_array($j)) return ['ok'=>false,'error'=>'avs_json','url'=>$url,'body'=>substr($raw,0,500)];
+  if (array_key_exists('success', $j) && $j['success'] === false) {
+    $err = $j['error'] ?? [];
+    $type = is_array($err) ? ($err['type'] ?? $err['code'] ?? 'avs_api') : 'avs_api';
+    $info = is_array($err) ? ($err['info'] ?? $err['message'] ?? '') : '';
+    return ['ok'=>false,'error'=>$type,'message'=>$info,'url'=>$url,'body'=>substr($raw,0,500)];
+  }
 
   return $j + ['ok'=>true,'_url'=>$url];
 }

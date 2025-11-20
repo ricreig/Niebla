@@ -128,10 +128,12 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
     // filtering with flight_date + arrival airport.
     $endpoint = 'flights';
     $baseParams = [
-        'arr_iata'      => $airportIata,
-        'arr_icao'      => $airportIcao,
-        'flight_date'   => $targetDate,
-        'flight_status' => 'scheduled,active,landed,diverted,cancelled',
+        'arr_iata'    => $airportIata,
+        'arr_icao'    => $airportIcao,
+        'flight_date' => $targetDate,
+        // No filtramos por flight_status porque la API solo acepta un valor a la vez
+        // y rechaza la lista de estados que necesitamos.  Sin el filtro entrega el
+        // mismo set de filas para el aeropuerto/fecha y evita el 400.
     ];
 
     $limit = 100;
@@ -249,7 +251,13 @@ $fetchErrors = [];
 foreach ($datesToFetch as $cursorDate) {
     $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $ttl);
     if (!($cursorRes['ok'] ?? false)) {
-        $fetchErrors[] = sprintf('date=%s err=%s', $cursorDate, $cursorRes['error'] ?? 'unknown');
+        $msg = trim((string)($cursorRes['message'] ?? ''));
+        $fetchErrors[] = sprintf(
+            'date=%s err=%s%s',
+            $cursorDate,
+            $cursorRes['error'] ?? 'unknown',
+            $msg !== '' ? ' msg='.$msg : ''
+        );
         continue;
     }
     foreach ($cursorRes['rows'] as $row) {
