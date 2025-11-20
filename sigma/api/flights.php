@@ -151,17 +151,16 @@ if ($start) {
 // Determina la ventana solicitada (timestamps UTC)
 $effectiveStartIso = $startIso;
 if ($startIso === null) {
-  $nowLocal    = new DateTimeImmutable('now', $tzLocal);
-  $fromLocal   = $nowLocal->setTime(0, 0, 0);
-  $hoursWindow = $hours > 0 ? $hours : 24;
-  $toLocal     = $fromLocal->modify("+{$hoursWindow} hours");
-  $fromUtc     = $fromLocal->setTimezone($tzUtc);
-  $toUtc       = $toLocal->setTimezone($tzUtc);
-  $windowStartTs = $fromUtc->getTimestamp();
-  $windowEndTs   = $toUtc->getTimestamp();
-  $windowStartIso = $fromUtc->format('c');
-  $windowEndIso   = $toUtc->format('c');
-  $effectiveStartIso = $fromUtc->format('Y-m-d\TH:i:s\Z');
+  // Default window: go $hours into the past from "now" UTC and extend until
+  // the end of the current UTC day to include the full timetable of today.
+  $hoursWindow    = $hours > 0 ? $hours : 24;
+  $nowUtc         = new DateTimeImmutable('now', $tzUtc);
+  $windowStartTs  = $nowUtc->modify("-{$hoursWindow} hours")->getTimestamp();
+  $windowStartIso = gmdate('c', $windowStartTs);
+  $endOfDayUtc    = $nowUtc->setTime(23, 59, 59);
+  $windowEndTs    = $endOfDayUtc->getTimestamp();
+  $windowEndIso   = $endOfDayUtc->format('c');
+  $effectiveStartIso = gmdate('Y-m-d\TH:i:s\Z', $windowStartTs);
 } else {
   [$windowStartTs, $windowEndTs] = window_bounds($hours, $startIso);
   $windowStartIso = gmdate('c', $windowStartTs);

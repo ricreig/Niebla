@@ -14,16 +14,24 @@ $st    = isset($_GET['status'])? (string)$_GET['status'] : '';
 if (!$dep && !$arr) jexit(['ok'=>false,'error'=>'dep_iata o arr_iata requerido'], 400);
 if (!in_array($type, ['arrival','departure','both'], true)) $type = $dep && $arr ? 'both' : ($dep ? 'departure':'arrival');
 function parse_utc($s){ if(!$s) return gmdate('Y-m-d\TH:i:00\Z'); $s=rtrim($s,'Z'); $ts=strtotime($s.'Z'); return gmdate('Y-m-d\TH:i:00\Z',$ts?:time()); }
-$from_iso = parse_utc($start);
-$from_ts  = strtotime($from_iso);
-$to_ts    = $from_ts + max(1,$hours)*3600;
-$to_iso   = gmdate('Y-m-d\TH:i:00\Z', $to_ts);
+$anchor_iso = parse_utc($start);
+$anchor_ts  = strtotime($anchor_iso);
+$from_ts    = $anchor_ts - max(1,$hours)*3600;
+$from_iso   = gmdate('Y-m-d\TH:i:00\Z', $from_ts);
+$to_iso     = gmdate('Y-m-d\T23:59:00\Z', $anchor_ts);
+$to_ts      = strtotime($to_iso);
 function days(int $a, int $b){ $o=[]; $c=strtotime(gmdate('Y-m-d\T00:00:00\Z',$a)); $e=strtotime(gmdate('Y-m-d\T00:00:00\Z',$b)); for($t=$c;$t<=$e;$t+=86400) $o[]=gmdate('Y-m-d',$t); return $o; }
 function curl_json(string $url, array &$errors): ?array{
   $ch=curl_init($url); curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>25,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
   $body=curl_exec($ch); $err=curl_error($ch); $code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE); curl_close($ch);
   if($err) $errors[]="curl:$err"; if(!$body){ $errors[]="http:$code:empty"; return null; }
-  $j=json_decode($body,true); if(!$j){ $errors[]="json:$code"; return null; } if(isset($j['error'])) $errors[]="api:".$j['error']['code'].":".$j['error']['type']??''; return $j;
+  $j=json_decode($body,true); if(!$j){ $errors[]="json:$code"; return null; }
+  if(isset($j['error'])){
+    $apiCode = $j['error']['code'] ?? '';
+    $apiType = $j['error']['type'] ?? '';
+    $errors[] = "api:" . $apiCode . ":" . $apiType;
+  }
+  return $j;
 }
 function normalize_rows(array $pages, string $side): array{
   $out=[]; foreach($pages as $row){ $dep=$row['departure']??[]; $arr=$row['arrival']??[]; $air=$row['airline']??[]; $flt=$row['flight']??[];
