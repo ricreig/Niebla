@@ -184,7 +184,20 @@ if (!is_array($cliArgs)) {
     $cliArgs = [];
 }
 
-$argDate = $cliArgs[1] ?? ($_GET['date'] ?? '');
+$argDate = '';
+foreach ($cliArgs as $idx => $arg) {
+    if ($idx === 0) {
+        continue;
+    }
+    if (strpos($arg, '--') === 0) {
+        continue;
+    }
+    $argDate = $arg;
+    break;
+}
+if ($argDate === '') {
+    $argDate = $_GET['date'] ?? '';
+}
 $date = trim((string)$argDate);
 if ($date === '') {
     $date = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
