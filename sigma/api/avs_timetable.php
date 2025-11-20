@@ -40,12 +40,12 @@ $db = db();
 $db->set_charset('utf8mb4');
 
 if ($type === 'arrival') {
-    $sql = "SELECT id, flight_number, callsign, airline, ac_reg, ac_type, dep_icao, dst_icao, std_utc, sta_utc, delay_min, status\n"
+    $sql = "SELECT id, flight_number, callsign, airline, ac_reg, ac_type, dep_icao, dst_icao, std_utc, sta_utc, delay_min, status, codeshares_json\n"
          . "FROM flights\n"
          . "WHERE (dst_icao = ? OR dst_icao = ?) AND sta_utc >= ? AND sta_utc < ?\n"
          . "ORDER BY sta_utc ASC, (callsign IS NULL) ASC, callsign ASC, flight_number ASC";
 } else {
-    $sql = "SELECT id, flight_number, callsign, airline, ac_reg, ac_type, dep_icao, dst_icao, std_utc, sta_utc, delay_min, status\n"
+    $sql = "SELECT id, flight_number, callsign, airline, ac_reg, ac_type, dep_icao, dst_icao, std_utc, sta_utc, delay_min, status, codeshares_json\n"
          . "FROM flights\n"
          . "WHERE (dep_icao = ? OR dep_icao = ?) AND std_utc >= ? AND std_utc < ?\n"
          . "ORDER BY std_utc ASC, (callsign IS NULL) ASC, callsign ASC, flight_number ASC";
@@ -108,6 +108,14 @@ while ($r = $res->fetch_assoc()) {
         $depCode = $iata;
     }
 
+    $codeshares = [];
+    if (!empty($r['codeshares_json'])) {
+        $decoded = json_decode((string)$r['codeshares_json'], true);
+        if (is_array($decoded)) {
+            $codeshares = array_values(array_filter(array_map('strval', $decoded)));
+        }
+    }
+
     $rows[] = [
         'id'          => isset($r['id']) ? (int)$r['id'] : null,
         'flight_icao' => $flightIcao,
@@ -119,6 +127,7 @@ while ($r = $res->fetch_assoc()) {
         'eta_utc'     => $etaUtcOut,
         'delay_min'   => $delayMin,
         'status'      => $status,
+        'codeshares'  => $codeshares,
     ];
 }
 
