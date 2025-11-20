@@ -53,13 +53,13 @@ function parse_time_with_timezone(?string $value, DateTimeZone $assumedTz, DateT
 }
 
 function pick_code(array $segment, string $fallback): string {
-    $iata = strtoupper(trim((string)($segment['iata'] ?? $segment['iataCode'] ?? '')));
     $icao = strtoupper(trim((string)($segment['icao'] ?? $segment['icaoCode'] ?? '')));
-    if ($iata !== '') {
-        return $iata;
-    }
+    $iata = strtoupper(trim((string)($segment['iata'] ?? $segment['iataCode'] ?? '')));
     if ($icao !== '') {
         return $icao;
+    }
+    if ($iata !== '') {
+        return $iata;
     }
     return $fallback;
 }
@@ -233,24 +233,231 @@ function merge_rows_with_codeshares(array $rows, int &$mergedCodeshares): array 
     return array_values($out);
 }
 
+function fr24_ts(?int $value): ?int {
+    if ($value === null) {
+        return null;
+    }
+    if ($value <= 0) {
+        return null;
+    }
+    return $value;
+}
+
+function fr24_ts_to_utc(?int $value): ?string {
+    $ts = fr24_ts($value);
+    if ($ts === null) {
+        return null;
+    }
+    return gmdate('Y-m-d H:i:s', $ts);
+}
+
+function fr24_fetch_light(string $airportIata, string $airportIcao, int $hours, int $ttl): array {
+    $token = getenv('FR24_API_TOKEN');
+    if (!$token && defined('FR24_API_TOKEN')) {
+        $token = FR24_API_TOKEN;
+    }
+    if (!$token) {
+        return ['ok' => false, 'error' => 'fr24_no_token'];
+    }
+
+    $base = defined('FR24_API_BASE') ? FR24_API_BASE : 'https://fr24api.flightradar24.com/api';
+    $version = defined('FR24_API_VERSION') ? FR24_API_VERSION : 'v1';
+
+    $now = time();
+    $from = gmdate('Y-m-d\TH:i:s\Z', max(0, $now - $hours * 3600));
+    $to = gmdate('Y-m-d\TH:i:s\Z', $now + $hours * 3600);
+
+    $url = rtrim($base, '/') . '/flight-summary/light?airports=inbound:' . $airportIcao . '&flight_datetime_from=' . $from . '&flight_datetime_to=' . $to;
+
+    $cacheKey = 'fr24_light|' . $url;
+    $cacheDir = __DIR__ . '/cache';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0755, true);
+    }
+    $cacheFile = $cacheDir . '/fr24_' . substr(hash('sha256', $cacheKey), 0, 32) . '.json';
+    if ($ttl > 0 && is_file($cacheFile) && (time() - filemtime($cacheFile) < $ttl)) {
+        $raw = @file_get_contents($cacheFile);
+        $j = json_decode($raw, true);
+        if (is_array($j)) {
+            return $j + ['ok' => true];
+        }
+    }
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Accept: application/json',
+        'Accept-Version: ' . $version,
+        'Authorization: Bearer ' . $token,
+    ]);
+
+    $raw = curl_exec($ch);
+    if ($raw === false) {
+        $err = curl_error($ch);
+        curl_close($ch);
+        return ['ok' => false, 'error' => 'fr24_http', 'curl_err' => $err, 'url' => $url];
+    }
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    if ($httpCode >= 400) {
+        return ['ok' => false, 'error' => 'fr24_http_' . $httpCode, 'url' => $url, 'body' => substr((string)$raw, 0, 500)];
+    }
+
+    @file_put_contents($cacheFile, (string)$raw);
+    $j = json_decode((string)$raw, true);
+    if (!is_array($j)) {
+        return ['ok' => false, 'error' => 'fr24_json', 'url' => $url];
+    }
+    return $j + ['ok' => true, '_url' => $url];
+}
+
+function normalize_fr24_row(array $row, DateTimeZone $tzUtc, string $airportIata, string $airportIcao): ?array {
+    if (!empty($row['flight_ended'])) {
+        return null;
+    }
+
+    $flightNumber = strtoupper(trim((string)($row['flight'] ?? $row['flight_iata'] ?? $row['flight_number'] ?? '')));
+    $operatingAs = strtoupper(trim((string)($row['operating_as'] ?? '')));
+    $callsign = strtoupper(trim((string)($row['callsign'] ?? '')));
+    if ($callsign === '' && $operatingAs !== '' && $flightNumber !== '') {
+        $numeric = extract_numeric_suffix([$flightNumber]);
+        if ($numeric !== '') {
+            $callsign = $operatingAs . $numeric;
+        }
+    }
+
+    if ($flightNumber === '' && $callsign !== '') {
+        $flightNumber = $callsign;
+    }
+    if ($flightNumber === '' && $callsign === '') {
+        return null;
+    }
+
+    $airlineName = null;
+    foreach (['airline_name', 'operating_as_name'] as $airKey) {
+        if (isset($row[$airKey]) && trim((string)$row[$airKey]) !== '') {
+            $airlineName = trim((string)$row[$airKey]);
+            break;
+        }
+    }
+    if ($airlineName === null && $operatingAs !== '') {
+        $airlineName = $operatingAs;
+    }
+
+    $depCode = pick_code([
+        'icao' => $row['orig_icao'] ?? $row['origin_icao'] ?? null,
+        'iata' => $row['orig_iata'] ?? null,
+    ], $airportIcao);
+    $arrCode = pick_code([
+        'icao' => $row['dest_icao'] ?? null,
+        'iata' => $row['dest_iata'] ?? null,
+    ], $airportIcao);
+    $divertedTo = pick_code([
+        'icao' => $row['dest_icao_actual'] ?? null,
+        'iata' => $row['dest_iata_actual'] ?? null,
+    ], '');
+    if ($divertedTo === $airportIata || $divertedTo === $airportIcao) {
+        $divertedTo = '';
+    }
+
+    $takeoffTs = fr24_ts($row['datetime_takeoff'] ?? $row['first_seen'] ?? null);
+    $landingTs = fr24_ts($row['last_seen'] ?? null);
+    $eetRaw = $row['eet'] ?? $row['eet_sec'] ?? null;
+    if ($landingTs === null && $takeoffTs !== null && is_numeric($eetRaw)) {
+        $landingTs = $takeoffTs + (int)$eetRaw;
+    }
+    $stdUtc = $takeoffTs ? gmdate('Y-m-d H:i:s', $takeoffTs) : null;
+    $staUtc = $landingTs ? gmdate('Y-m-d H:i:s', $landingTs) : null;
+
+    $acType = isset($row['type']) ? strtoupper(trim((string)$row['type'])) : null;
+    if ($acType === '') {
+        $acType = null;
+    }
+    $acReg = isset($row['reg']) ? strtoupper(trim((string)$row['reg'])) : null;
+    if ($acReg === '') {
+        $acReg = null;
+    }
+
+    $codeshares = [];
+    $paintedAs = strtoupper(trim((string)($row['painted_as'] ?? '')));
+    if ($paintedAs !== '' && $paintedAs !== $flightNumber) {
+        $codeshares[] = $paintedAs;
+    }
+
+    $status = ($divertedTo !== '') ? 'diverted' : 'active';
+
+    return [
+        'flight_number' => $flightNumber,
+        'callsign'      => $callsign !== '' ? $callsign : null,
+        'airline'       => $airlineName,
+        'ac_reg'        => $acReg,
+        'ac_type'       => $acType,
+        'dep_icao'      => strtoupper($depCode),
+        'dst_icao'      => strtoupper($divertedTo !== '' ? $divertedTo : $arrCode),
+        'std_utc'       => $stdUtc,
+        'sta_utc'       => $staUtc,
+        'delay_min'     => 0,
+        'status'        => $status,
+        'codeshares'    => $codeshares,
+        'diverted_to'   => $divertedTo !== '' ? strtoupper($divertedTo) : null,
+    ];
+}
+
+function sigma_is_list(array $arr): bool {
+    if (function_exists('array_is_list')) {
+        return array_is_list($arr);
+    }
+    return $arr === [] || array_keys($arr) === range(0, count($arr) - 1);
+}
+
+function merge_codeshares_payload(?string $existingJson, array $codeshares, ?string $divertedTo): ?string {
+    $payload = [];
+    if ($existingJson) {
+        $decoded = json_decode($existingJson, true);
+        if (is_array($decoded)) {
+            if (!sigma_is_list($decoded)) {
+                $payload = $decoded;
+            } else {
+                $payload['codeshares'] = $decoded;
+            }
+        }
+    }
+    if (!empty($codeshares)) {
+        $existingCodeshares = $payload['codeshares'] ?? [];
+        $payload['codeshares'] = array_values(array_unique(array_merge(
+            sigma_is_list($existingCodeshares) ? $existingCodeshares : [],
+            $codeshares
+        )));
+    }
+    if ($divertedTo) {
+        $payload['diverted_to'] = strtoupper($divertedTo);
+    }
+    if (!$payload) {
+        return null;
+    }
+    return json_encode($payload);
+}
+
 /**
  * Fetch all timetable rows for the given airport/date from AviationStack
  * using the flights endpoint (supports historical and same-day queries).
  * Returns an array with keys `ok` (bool), `rows` (array) and optional
  * `error`/`message`.
  */
-function avs_fetch_day(string $airportIata, string $airportIcao, string $targetDate, int $ttl): array {
+function avs_fetch_day(string $airportIata, string $airportIcao, string $targetDate, int $ttl, string $endpoint = 'flights', bool $useStatusFilter = true): array {
     // AviationStack flights endpoint: supports same-day and historical by
     // filtering with flight_date + arrival airport.
-    $endpoint = 'flights';
     $baseParams = [
         'arr_iata'    => $airportIata,
         'arr_icao'    => $airportIcao,
         'flight_date' => $targetDate,
     ];
 
-    $statusFilter = 'scheduled,active,landed,diverted,cancelled';
-    $useStatusFilter = true;
+    $statusFilter = 'scheduled,active,en-route,landed,diverted,cancelled';
 
     $limit = 100;
     $offset = 0;
@@ -453,7 +660,7 @@ if ($date === '') {
     $date = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
 }
 
-$rangeDays = 2;
+$rangeDays = 3;
 $forceSingleDay = false;
 $dryRun = false;
 foreach ($cliArgs as $arg) {
@@ -477,9 +684,6 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
 }
 
 $todayFetch = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
-if ($date > $todayFetch) {
-    $date = $todayFetch;
-}
 
 try {
     $anchor = new DateTimeImmutable($date . ' 00:00:00', $tzLocal);
@@ -503,24 +707,36 @@ $fetchErrors = [];
 $fetchedPerDate = [];
 $fetchedTimetable = 0;
 $effectiveDate = $datesToFetch[0] ?? $date;
-
-$ttRes = avs_get('timetable', [
-    'iataCode' => $iata,
-    'type'     => 'arrival',
-    'date'     => $effectiveDate,
-], $ttl);
-if ($ttRes['ok'] ?? false) {
-    $ttData = is_array($ttRes['data'] ?? null) ? $ttRes['data'] : [];
-    $fetchedTimetable = count($ttData);
-    foreach ($ttData as $row) {
-        $rawRows[] = ['timetable', $effectiveDate, $row];
+$todayDate = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
+if (in_array($todayDate, $datesToFetch, true)) {
+    $ttRes = avs_get('timetable', [
+        'iataCode' => $iata,
+        'type'     => 'arrival',
+        'date'     => $todayDate,
+    ], $ttl);
+    if ($ttRes['ok'] ?? false) {
+        $ttData = is_array($ttRes['data'] ?? null) ? $ttRes['data'] : [];
+        $fetchedTimetable = count($ttData);
+        foreach ($ttData as $row) {
+            $rawRows[] = ['timetable', $todayDate, $row];
+        }
+    } else {
+        $fetchErrors[] = sprintf('timetable err=%s', $ttRes['error'] ?? 'unknown');
     }
-} else {
-    $fetchErrors[] = sprintf('timetable err=%s', $ttRes['error'] ?? 'unknown');
 }
 
 foreach ($datesToFetch as $cursorDate) {
-    $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $ttl);
+    try {
+        $cursorObj = new DateTimeImmutable($cursorDate . ' 00:00:00', $tzLocal);
+    } catch (Throwable $e) {
+        $fetchErrors[] = sprintf('flights date=%s err=invalid_date', $cursorDate);
+        continue;
+    }
+    $nowLocal = new DateTimeImmutable('now', $tzLocal);
+    $diffDays = (int)$nowLocal->diff($cursorObj)->format('%r%a');
+    $endpoint = $diffDays > 7 ? 'flightsFuture' : 'flights';
+
+    $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $ttl, $endpoint, true);
     if (!($cursorRes['ok'] ?? false)) {
         $fetchErrors[] = sprintf('flights date=%s err=%s', $cursorDate, $cursorRes['error'] ?? 'unknown');
         continue;
@@ -656,6 +872,122 @@ foreach ($dedupedRows as $row) {
     }
 }
 
+$fr24Stats = [
+    'fetched' => 0,
+    'inserted' => 0,
+    'updated' => 0,
+    'diverted' => 0,
+    'skipped' => 0,
+];
+
+$frRes = fr24_fetch_light($iata, $icao, 8, $ttl);
+if ($frRes['ok'] ?? false) {
+    $frData = is_array($frRes['data'] ?? null) ? $frRes['data'] : [];
+    $fr24Stats['fetched'] = count($frData);
+
+    $sel = $db->prepare('SELECT id, status, codeshares_json, dst_icao, ac_reg, ac_type FROM flights WHERE flight_number=? OR callsign=? LIMIT 1');
+    $upd = $db->prepare('UPDATE flights SET status=?, dst_icao=?, codeshares_json=?, ac_reg=IF(ac_reg IS NULL OR ac_reg="", ?, ac_reg), ac_type=IF(ac_type IS NULL OR ac_type="", ?, ac_type) WHERE id=?');
+    if ($sel && $upd) {
+        foreach ($frData as $frRow) {
+            if (!is_array($frRow)) {
+                continue;
+            }
+            $norm = normalize_fr24_row($frRow, $tzUtc, $iata, $icao);
+            if (!$norm) {
+                $fr24Stats['skipped']++;
+                continue;
+            }
+
+            $flightNumber = $norm['flight_number'] ?? null;
+            $callsign = $norm['callsign'] ?? null;
+            $airlineName = $norm['airline'] ?? null;
+            $acReg = $norm['ac_reg'] ?? null;
+            $acType = $norm['ac_type'] ?? null;
+            $depCode = $norm['dep_icao'] ?? null;
+            $arrCode = $norm['dst_icao'] ?? null;
+            $stdUtc = $norm['std_utc'] ?? null;
+            $staUtc = $norm['sta_utc'] ?? null;
+            $delayMin = isset($norm['delay_min']) ? (int)$norm['delay_min'] : 0;
+            $statusOut = $norm['status'] ?? 'active';
+            $codesharesJson = merge_codeshares_payload(null, $norm['codeshares'] ?? [], $norm['diverted_to'] ?? null);
+
+            $existingId = null;
+            $existingStatus = null;
+            $existingCodeshares = null;
+            $existingDst = null;
+            $existingReg = null;
+            $existingType = null;
+
+            $sel->bind_param('ss', $flightNumber, $callsign);
+            if ($sel->execute()) {
+                $sel->store_result();
+                if ($sel->num_rows > 0) {
+                    $sel->bind_result($existingId, $existingStatus, $existingCodeshares, $existingDst, $existingReg, $existingType);
+                    $sel->fetch();
+                }
+                $sel->free_result();
+            }
+
+            if ($existingId === null) {
+                if ($ins->execute()) {
+                    $totalPersisted++;
+                    $aff = $ins->affected_rows;
+                    if ($aff === 1) {
+                        $fr24Stats['inserted']++;
+                        $inserted++;
+                    } elseif ($aff === 2) {
+                        $updated++;
+                    }
+                }
+                continue;
+            }
+
+            $targetStatus = $existingStatus ?? $statusOut;
+            if (status_priority($statusOut) > status_priority((string)$existingStatus)) {
+                $targetStatus = $statusOut;
+            }
+            if ($statusOut === 'diverted') {
+                $targetStatus = 'diverted';
+            }
+
+            $targetDst = $arrCode ?? $existingDst;
+            $mergedCodeshares = merge_codeshares_payload($existingCodeshares ?? null, $norm['codeshares'] ?? [], $norm['diverted_to'] ?? null);
+            $regUpdate = $acReg ?? '';
+            $typeUpdate = $acType ?? '';
+
+            $needsUpdate = false;
+            if ($targetStatus !== $existingStatus) {
+                $needsUpdate = true;
+            }
+            if ($targetDst && $targetDst !== $existingDst) {
+                $needsUpdate = true;
+            }
+            if ($mergedCodeshares !== ($existingCodeshares ?? null)) {
+                $needsUpdate = true;
+            }
+            if ($regUpdate && (!$existingReg || $existingReg === '')) {
+                $needsUpdate = true;
+            }
+            if ($typeUpdate && (!$existingType || $existingType === '')) {
+                $needsUpdate = true;
+            }
+
+            if ($needsUpdate) {
+                $upd->bind_param('sssssi', $targetStatus, $targetDst, $mergedCodeshares, $regUpdate, $typeUpdate, $existingId);
+                if ($upd->execute()) {
+                    $fr24Stats['updated']++;
+                    $updated++;
+                    if ($targetStatus === 'diverted') {
+                        $fr24Stats['diverted']++;
+                    }
+                }
+            }
+        }
+    }
+} else {
+    $fetchErrors[] = sprintf('fr24 err=%s', $frRes['error'] ?? 'unknown');
+}
+
 /*
  * SIGMA_TIMETABLE_CHECKLIST
  * 1) Time-range logic:
@@ -684,7 +1016,7 @@ foreach ($dedupedRows as $row) {
  */
 
 $summary = sprintf(
-    '[update_schedule] airport=%s tz=%s dates=%s (today_anchor=%s) total_api=%d persisted=%d inserted=%d updated=%d merged_codeshares=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d timetable=%d flights=%s errors=%s',
+    '[update_schedule] airport=%s tz=%s dates=%s (today_anchor=%s) total_api=%d persisted=%d inserted=%d updated=%d merged_codeshares=%d skipped_no_sta=%d skipped_no_flight=%d skipped_range=%d timetable=%d flights=%s fr24=%d/%d/%d/%d errors=%s',
     $iata,
     $tzLocal->getName(),
     implode(',', $datesToFetch),
@@ -699,6 +1031,10 @@ $summary = sprintf(
     $skippedOutOfRange,
     $fetchedTimetable,
     array_sum($fetchedPerDate),
+    $fr24Stats['fetched'] ?? 0,
+    $fr24Stats['inserted'] ?? 0,
+    $fr24Stats['updated'] ?? 0,
+    $fr24Stats['diverted'] ?? 0,
     $fetchErrors ? implode(';', $fetchErrors) : 'none'
 );
 
@@ -720,6 +1056,7 @@ $payload = [
         'skipped_out_of_range' => $skippedOutOfRange,
         'timetable_count' => $fetchedTimetable,
         'per_date' => $fetchedPerDate,
+        'fr24' => $fr24Stats,
         'errors' => $fetchErrors,
     ],
 ];
