@@ -282,8 +282,10 @@ function toIsoUtc(isoLike){
 
   /* ===== Normalización de fila ===== */
   // Mantengo r.RAW_STS (AVS); otros campos para UI.
-  function normRow({ eta, sta=null, std=null, id, adep, fri=null, dly='0m', raw_sts='unknown' }){
-    return { ETA: eta, STA: sta, STD: std, ID: id, ADEP: adep, FRI: fri ?? 'N/D', DLY: dly, RAW_STS: raw_sts };
+  function normRow({ eta, sta=null, std=null, id, adep, fri=null, dly='0m', raw_sts='unknown', meta=null }){
+    const row = { ETA: eta, STA: sta, STD: std, ID: id, ADEP: adep, FRI: fri ?? 'N/D', DLY: dly, RAW_STS: raw_sts };
+    if (meta) row._META = meta;
+    return row;
   }
 
   /* ===== Fuente AVS por día ===== */
@@ -339,7 +341,21 @@ function toIsoUtc(isoLike){
       const ata = arr?.actualTime || arr?.actual || null;
       const raw = x.status || x.flight_status || 'unknown';
 
-      const row = normRow({ eta: etaISO, sta: staISO, std: stdISO, id, adep, dly, raw_sts: raw });
+      const meta = {
+        flight_iata: fl.iata || fl.iataNumber || fl.number || null,
+        flight_icao: fl.icaoNumber || id || null,
+        callsign   : fl.icaoNumber || null,
+        airline    : al.name || al.iataCode || al.icaoCode || null,
+        dep_iata   : dep.iataCode || dep.iata || null,
+        dep_icao   : dep.icaoCode || dep.icao || null,
+        dst_iata   : arr.iataCode || arr.iata || null,
+        dst_icao   : arr.icaoCode || arr.icao || null,
+        ac_type    : (x.aircraft || {}).icaoCode || null,
+        ac_reg     : (x.aircraft || {}).regNumber || null
+      };
+      meta.route = meta.dep_icao && meta.dst_icao ? `${meta.dep_icao} → ${meta.dst_icao}` : null;
+
+      const row = normRow({ eta: etaISO, sta: staISO, std: stdISO, id, adep, dly, raw_sts: raw, meta });
       if(ata) row._ATA = ata;
       return row;
     });
@@ -373,7 +389,21 @@ function toIsoUtc(isoLike){
       const fri = (typeof r.fri_pct === 'number' && r.fri_pct>=0) ? (Math.round(r.fri_pct*10)/10) : null;
       const dly = fmtDelay(parseInt(r.delay_min ?? '0',10) || 0);
       const raw = r.status || r.RAW_STS || 'unknown';
-      const row = normRow({ eta: eta, sta: sta, std: std, id: id, adep: adep, fri: fri, dly: dly, raw_sts: raw });
+      const meta = {
+        flight_iata: r.flight_iata || r.flight_number || r.flight || null,
+        flight_icao: preferIcao(r) || null,
+        callsign   : r.callsign || r.call_sign || r.flight_icao || null,
+        airline    : r.airline || r.airline_name || r.airline_iata || r.airline_icao || null,
+        dep_iata   : r.dep_iata || r.departure_iata || r.ADEP || null,
+        dep_icao   : r.dep_icao || r.departure_icao || null,
+        dst_iata   : r.dst_iata || r.arr_iata || null,
+        dst_icao   : r.dst_icao || r.arr_icao || null,
+        ac_type    : r.ac_type || r.aircraft_icao || null,
+        ac_reg     : r.ac_reg || r.aircraft_registration || null
+      };
+      meta.route = meta.dep_icao && meta.dst_icao ? `${meta.dep_icao} → ${meta.dst_icao}` : null;
+
+      const row = normRow({ eta: eta, sta: sta, std: std, id: id, adep: adep, fri: fri, dly: dly, raw_sts: raw, meta });
       if (r.ata_utc || r._ATA) row._ATA = r.ata_utc || r._ATA;
       // Add alternate airport if provided
       if (r.dest_iata_actual) row._ALT = String(r.dest_iata_actual).toUpperCase();
@@ -598,6 +628,7 @@ function updateStatsCard(rows){
       </div>
       <div class="modal-body">
         <div class="small text-muted mb-2" id="rmkHdr"></div>
+        <div class="mb-3" id="rmkDetails"></div>
         <div class="row g-2 mb-2">
           <div class="col-6">
             <label class="form-label">Secuencia</label>
@@ -638,6 +669,7 @@ function updateStatsCard(rows){
   function openRMK(row){
     const mEl  = ensureRMKModal();
     const hdr  = mEl.querySelector('#rmkHdr');
+    const det  = mEl.querySelector('#rmkDetails');
     const secV = mEl.querySelector('#secVal');
     const altV = mEl.querySelector('#altVal');
     const txt  = mEl.querySelector('#rmkTxt');
@@ -646,6 +678,29 @@ function updateStatsCard(rows){
     const save = mEl.querySelector('#rmkSave');
 
     hdr.textContent = `ETA ${new Date(row.ETA).toISOString().slice(11,16)}Z · ${row.ID} · ADEP ${row.ADEP} · RAW ${row.RAW_STS}`;
+
+    const meta = row._META || {};
+    const origin = meta.dep_icao || meta.dep_iata || row.ADEP || '—';
+    const dest   = meta.dst_icao || meta.dst_iata || row._ALT || 'MMTJ';
+    const route  = meta.route || ((origin && dest && origin !== '—') ? `${origin} → ${dest}` : null);
+
+    const items = [
+      {label:'ID IATA', val: meta.flight_iata || row.ID || '—'},
+      {label:'ID ICAO', val: meta.flight_icao || row.ID || '—'},
+      {label:'Callsign', val: meta.callsign || '—'},
+      {label:'Aerolínea', val: meta.airline || '—'},
+      {label:'Origen', val: origin},
+      {label:'Destino', val: dest},
+      {label:'Tipo aeronave', val: meta.ac_type || '—'},
+      {label:'Matrícula', val: meta.ac_reg || '—'},
+      {label:'Ruta', val: route || '—'}
+    ];
+
+    det.innerHTML = `
+      <div class="small text-uppercase text-secondary fw-semibold mb-1">Información completa</div>
+      <dl class="row row-cols-1 g-1 small mb-0">
+        ${items.map(i => `<div class="col"><dt class="text-muted mb-0">${i.label}</dt><dd class="mb-1 fw-semibold">${i.val}</dd></div>`).join('')}
+      </dl>`;
 
     const key   = rowKey(row);
     const stash = RMK_STORE.get(key) || {};
