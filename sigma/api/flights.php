@@ -63,6 +63,7 @@ function map_status($s): string {
   $t = strtolower((string)$s);
   if (in_array($t, ['landed','arrived','arrival'], true)) return 'landed';
   if (in_array($t, ['active','airborne','en-route','enroute'], true)) return 'active';
+  if (in_array($t, ['taxi','taxiing'], true)) return 'taxi';
   if (in_array($t, ['diverted','alternate','rerouted'], true)) return 'diverted';
   if (in_array($t, ['incident','accident','irregular'], true)) return 'incident';
   if (in_array($t, ['cancelled','canceled','cancld','cncl'], true)) return 'cancelled';
@@ -111,8 +112,8 @@ function row_within_window(array $row, int $startTs, int $endTs): bool {
 }
 
 /* ========== Entrada ========== */
-// Number of hours to search. Defaults to 12 if not provided or invalid.
-$hours = int_param('hours', 12);
+// Number of hours to search. Defaults to 24 if not provided or invalid.
+$hours = int_param('hours', 24);
 
 // Optional start time (ISO8601 or 'now'). When provided, the API will
 // determine whether to use the local timetable (AVS + FR24 live) or
