@@ -163,11 +163,14 @@ function toIsoUtc(isoLike){
   // Mantengo r.RAW_STS como lo entrega AVS; mapeo a clave de 6 letras SOLO para UI/filtros.
   function rawToSTS6(raw){
     const t = String(raw||'').trim().toLowerCase();
-        if (t==='airborne' || t==='active' || t==='enroute' || t==='en-route') return 'ENROUTE';
-        if (t==='taxi') return 'TAXI';
-    if (t==='landed') return 'LANDED';
-    if (t==='scheduled') return 'SCHEDL';
-    if (t==='diverted') return 'ALTERN';
+    // Aceptamos las variantes que escribe la tabla `flights` después de
+    // normalizar AviationStack/FR24 para evitar que un espacio o guión cambie
+    // la etiqueta visible.
+    if (t==='airborne' || t==='active' || t==='enroute' || t==='en-route' || t==='en route') return 'ENROUTE';
+    if (t==='taxi' || t==='taxiing') return 'TAXI';
+    if (t==='landed' || t==='arrived' || t==='arrival') return 'LANDED';
+    if (t==='scheduled' || t==='sched' || t==='programado') return 'SCHEDL';
+    if (t==='diverted' || t==='alternate' || t==='rerouted') return 'ALTERN';
     if (t==='incident' || t==='accident' || t==='irregular') return 'INCDNT';
     if (t==='canceled' || t==='cancelled' || t==='cncl' || t==='cancld') return 'CANCLD';
     if (t==='delayed' || t==='delay') return 'DELAYED';
