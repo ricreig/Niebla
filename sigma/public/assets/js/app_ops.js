@@ -175,7 +175,14 @@ function toIsoUtc(isoLike){
   }
   function effectiveSTS6(row){
     const over = getRMK(row).stsOverride;
-    return over ? over : rawToSTS6(row.RAW_STS);
+    if (over) return over;
+
+    const base = rawToSTS6(row.RAW_STS);
+    // Si está en-route/active pero no hay ETA disponible, mostrar TAXI según la lógica solicitada.
+    if (base === 'ENROUTE' && !(row.ETA || row.STA)) {
+      return 'TAXI';
+    }
+    return base;
   }
   function badgeSTS6(sts6){
     return `<span class="badge-sts sts-${sts6}">${sts6}</span>`;

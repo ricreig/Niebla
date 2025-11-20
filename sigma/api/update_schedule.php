@@ -140,6 +140,7 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
     $offset = 0;
     $allRows = [];
     $page = 0;
+    $count = 0;
 
     do {
         $params = $baseParams + ['limit' => $limit, 'offset' => $offset];
@@ -158,6 +159,7 @@ function avs_fetch_day(string $airportIata, string $airportIcao, string $targetD
                 $offset = 0;
                 $allRows = [];
                 $page = 0;
+                $count = $limit; // evita warning en la condición del while
                 continue;
             }
 
@@ -216,12 +218,16 @@ if ($date === '') {
 
 $rangeDays = 2;
 $forceSingleDay = false;
+$dryRun = false;
 foreach ($cliArgs as $arg) {
     if (preg_match('/^--days=(\d{1,2})$/', $arg, $m)) {
         $rangeDays = max(1, min(5, (int)$m[1]));
     }
     if ($arg === '--single-day') {
         $forceSingleDay = true;
+    }
+    if ($arg === '--dry-run') {
+        $dryRun = true;
     }
 }
 if ($forceSingleDay) {
@@ -264,20 +270,40 @@ $ttl = (isset($_GET['nocache']) || in_array('--nocache', $cliArgs, true)) ? 0 : 
 
 $fetchedRows = [];
 $fetchErrors = [];
+$fetchedPerDate = [];
 foreach ($datesToFetch as $cursorDate) {
     $cursorRes = avs_fetch_day($iata, $icao, $cursorDate, $ttl);
     if (!($cursorRes['ok'] ?? false)) {
         $fetchErrors[] = sprintf('date=%s err=%s', $cursorDate, $cursorRes['error'] ?? 'unknown');
         continue;
     }
+    $fetchedPerDate[$cursorDate] = isset($cursorRes['rows']) && is_array($cursorRes['rows']) ? count($cursorRes['rows']) : 0;
     foreach ($cursorRes['rows'] as $row) {
         $fetchedRows[] = [$cursorDate, $row];
     }
 }
 
 if (!$fetchedRows) {
-    sigma_stderr("[update_schedule] no data fetched for " . implode(',', $datesToFetch) . " errors=" . implode(';', $fetchErrors) . "\n");
+    $perDateMsg = $fetchedPerDate ? implode(',', array_map(fn($d,$c)=>"$d:$c", array_keys($fetchedPerDate), $fetchedPerDate)) : 'none';
+    $errMsg = $fetchErrors ? implode(';', $fetchErrors) : 'none';
+    sigma_stderr("[update_schedule] no data fetched for " . implode(',', $datesToFetch) . " per_date=" . $perDateMsg . " errors=" . $errMsg . "\n");
     exit(2);
+}
+
+$totalRows = count($fetchedRows);
+if ($dryRun) {
+    $perDateMsg = $fetchedPerDate ? implode(',', array_map(fn($d,$c)=>"$d:$c", array_keys($fetchedPerDate), $fetchedPerDate)) : 'none';
+    $summary = sprintf(
+        '[update_schedule] dry-run airport=%s tz=%s dates=%s fetched_api=%d per_date=%s errors=%s',
+        $iata,
+        $tzFetch->getName(),
+        implode(',', $datesToFetch),
+        $totalRows,
+        $perDateMsg,
+        $fetchErrors ? implode(';', $fetchErrors) : 'none'
+    );
+    sigma_stdout($summary . "\n");
+    exit(0);
 }
 
 $db = db();
@@ -502,6 +528,7 @@ $payload = [
         'skipped_no_sta' => $skippedNoSta,
         'skipped_no_flight' => $skippedNoFlight,
         'skipped_out_of_range' => $skippedOutOfRange,
+        'per_date' => $fetchedPerDate,
         'errors' => $fetchErrors,
     ],
 ];
