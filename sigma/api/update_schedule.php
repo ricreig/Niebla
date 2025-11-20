@@ -705,18 +705,18 @@ $fetchErrors = [];
 $fetchedPerDate = [];
 $fetchedTimetable = 0;
 $effectiveDate = $datesToFetch[0] ?? $date;
-$todayDate = (new DateTimeImmutable('now', $tzLocal))->format('Y-m-d');
+$timetableDate = $effectiveDate;
 
 $ttRes = avs_get('timetable', [
     'iataCode' => $iata,
     'type'     => 'arrival',
-    'date'     => $todayDate,
+    'date'     => $timetableDate,
 ], $ttl);
 if ($ttRes['ok'] ?? false) {
     $ttData = is_array($ttRes['data'] ?? null) ? $ttRes['data'] : [];
     $fetchedTimetable = count($ttData);
     foreach ($ttData as $row) {
-        $rawRows[] = ['timetable', $todayDate, $row];
+        $rawRows[] = ['timetable', $timetableDate, $row];
     }
 } else {
     $fetchErrors[] = sprintf('timetable err=%s', $ttRes['error'] ?? 'unknown');
