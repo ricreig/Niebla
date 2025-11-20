@@ -92,13 +92,12 @@ function toIsoUtc(isoLike){
   }
   function computeRangeState(){
     const now = new Date();
-    const midnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-    const startUTC = new Date(midnightUTC.getTime() - (AUTO_RANGE_DAYS - 1) * 86400000);
-    const endUTC = new Date(midnightUTC.getTime() + (24 * 60 * 60 * 1000) - 1000);
+    const startUTC = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24h hacia atrás desde ahora UTC
+    const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
     const rangeHours = Math.max(1, Math.ceil((endUTC.getTime() - startUTC.getTime()) / 3600000));
     const utcDates = [];
     const cursor = new Date(Date.UTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth(), startUTC.getUTCDate()));
-    const endCursor = new Date(Date.UTC(midnightUTC.getUTCFullYear(), midnightUTC.getUTCMonth(), midnightUTC.getUTCDate()));
+    const endCursor = new Date(Date.UTC(endUTC.getUTCFullYear(), endUTC.getUTCMonth(), endUTC.getUTCDate()));
     while(cursor <= endCursor){
       utcDates.push(`${cursor.getUTCFullYear()}-${pad2(cursor.getUTCMonth()+1)}-${pad2(cursor.getUTCDate())}`);
       cursor.setUTCDate(cursor.getUTCDate()+1);
@@ -269,9 +268,9 @@ function toIsoUtc(isoLike){
   }
   function rowSortTs(r){
     const iso = rowTimeKey(r);
-    if(!iso) return Infinity;
+    if(!iso) return null;
     const ts = Date.parse(iso);
-    return Number.isFinite(ts) ? ts : Infinity;
+    return Number.isFinite(ts) ? ts : null;
   }
   function getRMK(r){ return RMK_STORE.get(rowKey(r)) || {}; }
 
@@ -420,7 +419,12 @@ function toIsoUtc(isoLike){
       }
       const A = rowSortTs(a);
       const B = rowSortTs(b);
-      return A - B;
+      const hasA = Number.isFinite(A);
+      const hasB = Number.isFinite(B);
+      if(hasA && hasB) return B - A; // más recientes primero
+      if(hasA) return -1;  // A tiene hora, B no → A arriba
+      if(hasB) return 1;   // B tiene hora, A no → B arriba
+      return 0;
     });
     return rows;
   }
