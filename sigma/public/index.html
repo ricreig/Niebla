@@ -1,16 +1,16 @@
 <!doctype html>
 <html lang="es" data-bs-theme="dark">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=0.7, viewport-fit=cover">
-	<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MMTJ SIGMA_v1">
-<!-- Tinte de barras en navegador -->
-<meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0d1422">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=0.7, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MMTJ SIGMA_v1">
+  <!-- Tinte de barras en navegador -->
+  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0d1422">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 
   <title>SIGMA · TIJ/MMTJ</title>
 
@@ -31,14 +31,14 @@
   <link rel="preload" href="./assets/ICAORWYID.ttf?v=20251122" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
-<div class="container-fluid p-2">
+<div class="container-fluid p-2 sigma-root">
 
   <!-- HEADER / TOOLBAR -->
-  <header class="mb-2">
+  <header class="sigma-header sticky-top">
     <div class="row g-2 align-items-center">
       <div class="col-12 col-md">
         <strong class="h5 m-0">SIGMA · Gestión de Mínimos y Baja Visibilidad · TIJ/MMTJ</strong>
-        <div id="rangeHint" class="text-muted small mt-1"></div>
+        <div id="rangeHint" class="text-muted small mt-1 d-none d-md-block"></div>
       </div>
       <div class="col-12 col-md-auto d-none d-md-flex justify-content-end align-items-center gap-2">
         <button id="btnApply_md" class="btn btn-sm btn-outline-secondary">
@@ -48,6 +48,7 @@
       </div>
     </div>
 
+    <!-- Header móvil -->
     <div class="d-block d-md-none mt-2">
       <div class="row g-2 align-items-center">
         <div class="col-8">
@@ -60,31 +61,31 @@
           <div class="btn-group w-100">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">STS</button>
             <div id="statusFilters" class="dropdown-menu dropdown-menu-dark p-2 small">
-  <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
-  <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
-  <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
-  <label class="dropdown-item"><input type="checkbox" value="DELAYED" data-sts="DELAYED" checked> Delayed</label>
-  <label class="dropdown-item"><input type="checkbox" value="CANCLD"  data-sts="CANCLD"  checked> Canceled</label>
-  <label class="dropdown-item"><input type="checkbox" value="ALTERN"  data-sts="ALTERN"  checked> Diverted</label>
-  <label class="dropdown-item"><input type="checkbox" value="INCDNT"  data-sts="INCDNT"  checked> Incident</label>
-  <label class="dropdown-item"><input type="checkbox" value="UNKNW"   data-sts="UNKNW"   checked> Unknown</label>
-      <label class="dropdown-item"><input type="checkbox" value="TAXI"   data-sts="TAXI"   checked> Taxi</label>
-</div>
+              <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
+              <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
+              <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
+              <label class="dropdown-item"><input type="checkbox" value="DELAYED" data-sts="DELAYED" checked> Delayed</label>
+              <label class="dropdown-item"><input type="checkbox" value="CANCLD"  data-sts="CANCLD"  checked> Canceled</label>
+              <label class="dropdown-item"><input type="checkbox" value="ALTERN"  data-sts="ALTERN"  checked> Diverted</label>
+              <label class="dropdown-item"><input type="checkbox" value="INCDNT"  data-sts="INCDNT"  checked> Incident</label>
+              <label class="dropdown-item"><input type="checkbox" value="UNKNW"   data-sts="UNKNW"   checked> Unknown</label>
+              <label class="dropdown-item"><input type="checkbox" value="TAXI"   data-sts="TAXI"   checked> Taxi</label>
+            </div>
           </div>
         </div>
         <div class="col-6">
           <div class="btn-group w-100">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">COL</button>
             <div id="colToggles" class="dropdown-menu dropdown-menu-dark p-2 small">
-  <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
-  <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
-  <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
-  <label class="dropdown-item"><input type="checkbox" value="FRI" checked> FRI</label>
-  <label class="dropdown-item"><input type="checkbox" value="EET" checked> EET</label>
-  <label class="dropdown-item"><input type="checkbox" value="DLY" checked> DLY</label>
-  <label class="dropdown-item"><input type="checkbox" value="STS" checked> STS</label>
-  <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
-</div>
+              <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
+              <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
+              <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
+              <label class="dropdown-item"><input type="checkbox" value="FRI" checked> FRI</label>
+              <label class="dropdown-item"><input type="checkbox" value="EET" checked> EET</label>
+              <label class="dropdown-item"><input type="checkbox" value="DLY" checked> DLY</label>
+              <label class="dropdown-item"><input type="checkbox" value="STS" checked> STS</label>
+              <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
+            </div>
           </div>
         </div>
         <div class="col-12">
@@ -93,63 +94,66 @@
       </div>
     </div>
 
-<div class="d-none d-md-block mt-2">
-  <div class="row g-2 align-items-center">
-    <div class="col-md-3">
-      <div class="btn-group w-100">
-<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">STS</button>
-<div id="statusFilters_md" class="dropdown-menu dropdown-menu-dark p-2 small">
-  <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
-  <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
-  <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
-  <label class="dropdown-item"><input type="checkbox" value="DELAYED" data-sts="DELAYED" checked> Delayed</label>
-  <label class="dropdown-item"><input type="checkbox" value="CANCLD"  data-sts="CANCLD"  checked> Canceled</label>
-  <label class="dropdown-item"><input type="checkbox" value="ALTERN"  data-sts="ALTERN"  checked> Diverted</label>
-  <label class="dropdown-item"><input type="checkbox" value="INCDNT"  data-sts="INCDNT"  checked> Incident</label>
-  <label class="dropdown-item"><input type="checkbox" value="UNKNW"   data-sts="UNKNW"   checked> Unknown</label>
-      <label class="dropdown-item"><input type="checkbox" value="TAXI"   data-sts="TAXI"   checked> Taxi</label>
-</div>
-      </div>
-    </div>
+    <!-- Filtros desktop: 3 columnas iguales (STS / COL / búsqueda) -->
+    <div class="d-none d-md-block mt-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-4">
+          <div class="btn-group w-100">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" data-bs-auto-close="outside">STS</button>
+            <div id="statusFilters_md" class="dropdown-menu dropdown-menu-dark p-2 small">
+              <label class="dropdown-item"><input type="checkbox" value="ENROUTE" data-sts="ENROUTE" checked> En-Route</label>
+              <label class="dropdown-item"><input type="checkbox" value="SCHEDL"  data-sts="SCHEDL"  checked> Scheduled</label>
+              <label class="dropdown-item"><input type="checkbox" value="LANDED"  data-sts="LANDED" checked> Landed</label>
+              <label class="dropdown-item"><input type="checkbox" value="DELAYED" data-sts="DELAYED" checked> Delayed</label>
+              <label class="dropdown-item"><input type="checkbox" value="CANCLD"  data-sts="CANCLD"  checked> Canceled</label>
+              <label class="dropdown-item"><input type="checkbox" value="ALTERN"  data-sts="ALTERN"  checked> Diverted</label>
+              <label class="dropdown-item"><input type="checkbox" value="INCDNT"  data-sts="INCDNT"  checked> Incident</label>
+              <label class="dropdown-item"><input type="checkbox" value="UNKNW"   data-sts="UNKNW"   checked> Unknown</label>
+              <label class="dropdown-item"><input type="checkbox" value="TAXI"   data-sts="TAXI"   checked> Taxi</label>
+            </div>
+          </div>
+        </div>
 
-    <div class="col-md-3">
-      <div class="btn-group w-100">
-<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
-        data-bs-toggle="dropdown"
-        data-bs-auto-close="outside">COL</button>
-<div id="colToggles_md" class="dropdown-menu dropdown-menu-dark p-2 small">
-  <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
-  <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
-  <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
-  <label class="dropdown-item"><input type="checkbox" value="FRI" checked> FRI</label>
-  <label class="dropdown-item"><input type="checkbox" value="EET" checked> EET</label>
-  <label class="dropdown-item"><input type="checkbox" value="DLY" checked> DLY</label>
-  <label class="dropdown-item"><input type="checkbox" value="STS" checked> STS</label>
-  <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
-</div>
-    </div>
+        <div class="col-md-4">
+          <div class="btn-group w-100">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100"
+                    data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside">COL</button>
+            <div id="colToggles_md" class="dropdown-menu dropdown-menu-dark p-2 small">
+              <label class="dropdown-item"><input type="checkbox" value="ETA" checked> ETA</label>
+              <label class="dropdown-item"><input type="checkbox" value="ID"  checked> ID</label>
+              <label class="dropdown-item"><input type="checkbox" value="ADEP" checked> ADEP</label>
+              <label class="dropdown-item"><input type="checkbox" value="FRI" checked> FRI</label>
+              <label class="dropdown-item"><input type="checkbox" value="EET" checked> EET</label>
+              <label class="dropdown-item"><input type="checkbox" value="DLY" checked> DLY</label>
+              <label class="dropdown-item"><input type="checkbox" value="STS" checked> STS</label>
+              <label class="dropdown-item"><input type="checkbox" value="RMK" checked> RMK</label>
+            </div>
+          </div>
+        </div>
 
-    <div class="col-md-6 col-lg-5 ms-md-auto">
-      <div class="input-group input-group-sm">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input id="filterText" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
-        <button id="filterClear" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
-      </div>
-    </div>
-  </div>
-</div>
-
-  <div class="mt-2 d-md-none">
-    <div class="row g-2">
-      <div class="col-12">
-        <div class="input-group input-group-sm">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input id="filterText_m" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
-          <button id="filterClear_m" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
+        <div class="col-md-4">
+          <div class="input-group input-group-sm w-100">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input id="filterText" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
+            <button id="filterClear" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Buscador móvil -->
+    <div class="mt-2 d-md-none">
+      <div class="row g-2">
+        <div class="col-12">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input id="filterText_m" type="search" class="form-control" placeholder="Filtrar ID o aeropuerto" aria-label="Filtrar vuelos">
+            <button id="filterClear_m" class="btn btn-outline-secondary" type="button" title="Borrar filtro"><i class="bi bi-x-circle"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </header>
 
@@ -186,16 +190,14 @@
     <div class="col-md-6">
       <div id="friCard" class="card sig shadow-soft">
         <div class="card-body d-flex justify-content-between align-items-right">
-       <div class="cardtitle"><strong>Fog Risk Indicator</strong></div>
+          <div class="cardtitle"><strong>Fog Risk Indicator</strong></div>
           <a class="small btn btn-outline-info btn-sm" id="btnSigma" href="/mmtj_fog/public/index.php" target="_blank"><i class="small bi bi-cloud-fog2-fill me-1"></i>FRI</a>
+          <a class="small btn btn-outline-info btn-sm" id="btnNBM" href="nbm_mmtj.php" target="_blank"><i class="small bi bi-airplane-engines me-1"></i>NBM</a>
+        </div>
 
-			<a class="small btn btn-outline-info btn-sm" id="btnNBM" href="nbm_mmtj.php" target="_blank"><i class="small bi bi-airplane-engines me-1"></i>NBM</a>
-			
-	        </div>
-			
-<div id="fri-card" class="card fri-card p-3 h-100 mb-0">
-    FRI | Fog Risk Indicator: Cargando…
-  </div>
+        <div id="fri-card" class="card fri-card p-3 h-100 mb-0">
+          FRI | Fog Risk Indicator: Cargando…
+        </div>
       </div>
 
       <div class="card sig shadow-soft mt-3">

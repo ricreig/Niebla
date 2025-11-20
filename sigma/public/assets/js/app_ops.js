@@ -1,4 +1,3 @@
-// public/assets/js/app_ops.js
 (function(){
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>Array.from(document.querySelectorAll(s));
@@ -468,7 +467,7 @@ function toIsoUtc(isoLike){
       const startIso = range.startIso;
       let rows = await loadFlights(hours, startIso);
       // FRI map (if fri_pct not already set)
-      try{ assignFRI(rows, await fetchFRIMap()); }catch(_){}
+      try{ assignFRI(rows, await fetchFRIMap()); }catch(_){ }
       // modal overrides
       rows.forEach(r=>{
         const st = RMK_STORE.get(rowKey(r)); if(!st) return;
@@ -502,7 +501,7 @@ function toIsoUtc(isoLike){
     }
     rows = Array.from(seen.values());
     // 4) FRI
-    try{ assignFRI(rows, await fetchFRIMap()); }catch(_){}
+    try{ assignFRI(rows, await fetchFRIMap()); }catch(_){ }
     // 5) overrides del modal
     rows.forEach(r=>{
       const st = RMK_STORE.get(rowKey(r)); if(!st) return;
@@ -518,44 +517,71 @@ function toIsoUtc(isoLike){
     return sortRowsInPlace(filtered);
   }
 
-  /* ===== Stats ===== */
+/* ===== Stats ===== */
 function updateStatsCard(rows){
-  const el = document.getElementById('stats'); if(!el) return;
+  const el = document.getElementById('stats'); 
+  if (!el) return;
+
   const c = {ENROUTE:0,SCHEDL:0,LANDED:0,CANCLD:0,ALTERN:0,INCDNT:0,UNKNW:0};
+
   rows.forEach(r => {
     // Determine the 6-letter status code via effectiveSTS6
     const sts6 = effectiveSTS6(r);
-    switch(sts6){
+    switch (sts6) {
       case 'ENROUTE':
       case 'TAXI':
-        c.ENROUTE++; break;
+        c.ENROUTE++; 
+        break;
       case 'SCHEDL':
-        c.SCHEDL++; break;
+        c.SCHEDL++; 
+        break;
       case 'LANDED':
-        c.LANDED++; break;
+        c.LANDED++; 
+        break;
       case 'CANCLD':
-        c.CANCLD++; break;
+        c.CANCLD++; 
+        break;
       case 'ALTERN':
-        c.ALTERN++; break;
+        c.ALTERN++; 
+        break;
       case 'INCDNT':
-        c.INCDNT++; break;
+        c.INCDNT++; 
+        break;
       default:
         c.UNKNW++;
     }
   });
+
   const total = c.ENROUTE + c.SCHEDL + c.LANDED + c.CANCLD + c.ALTERN + c.INCDNT + c.UNKNW;
 
-  el.innerHTML = [
+  const lines = [
     `<div class="item"><span class="label">En-Route:</span><span class="val">${c.ENROUTE}</span></div>`,
     `<div class="item"><span class="label">Scheduled:</span><span class="val">${c.SCHEDL}</span></div>`,
     `<div class="item"><span class="label">Landed:</span><span class="val">${c.LANDED}</span></div>`,
     `<div class="item"><span class="label">Canceled:</span><span class="val">${c.CANCLD}</span></div>`,
-    `<div class="item"><span class="label">Diverted:</span><span class="val">${c.ALTERN}</span></div>`,
-    `<div class="item"><span class="label">Incident:</span><span class="val">${c.INCDNT}</span></div>`,
-    `<div class="item"><span class="label">Unknown:</span><span class="val">${c.UNKNW}</span></div>`,
+    `<div class="item"><span class="label">Diverted:</span><span class="val">${c.ALTERN}</span></div>`
+  ];
+
+  // Solo mostrar Incident si hay > 0
+  if (c.INCDNT > 0) {
+    lines.push(
+      `<div class="item"><span class="label">Incident:</span><span class="val">${c.INCDNT}</span></div>`
+    );
+  }
+
+  // Solo mostrar Unknown si hay > 0
+  if (c.UNKNW > 0) {
+    lines.push(
+      `<div class="item"><span class="label">Unknown:</span><span class="val">${c.UNKNW}</span></div>`
+    );
+  }
+
+  lines.push(
     `<div class="my-1"></div>`,
     `<div class="item fw-bold"><span class="label">Total Flights</span><span class="val">${total}</span></div>`
-  ].join('');
+  );
+
+  el.innerHTML = lines.join('');
 }
 
   /* ===== Modal RMK (override visual, no toca RAW_STS) ===== */
