@@ -293,6 +293,32 @@ function toIsoUtc(isoLike){
     return row;
   }
 
+  // Algunos operadores (ej. Volaris, Viva, AMX) se buscan en FR24 por su
+  // código IATA y no por ICAO.  Este mapa permite convertir el prefijo ICAO
+  // a IATA para construir el enlace correcto.
+  const ICAO_TO_IATA_FR24 = {
+    'VOI': 'Y4',
+    'VIV': 'VB',
+    'AMX': 'AM'
+  };
+
+  function fr24SearchId(row){
+    const meta = row?._META || {};
+    const flightNumber = (meta.flight_number || '').toString().trim().toUpperCase();
+    if (flightNumber) return flightNumber;
+
+    const iata = (meta.flight_iata || '').toString().trim().toUpperCase();
+    if (iata) return iata;
+
+    const icao = (meta.flight_icao || row.ID || '').toString().toUpperCase();
+    const m = icao.match(/^([A-Z]{2,3})([0-9].*)$/);
+    if (m) {
+      const mapped = ICAO_TO_IATA_FR24[m[1]];
+      if (mapped) return `${mapped}${m[2]}`;
+    }
+    return icao || '';
+  }
+
   /* ===== Fuente AVS por día ===== */
   const pickT = (o)=> [o?.estimatedTime,o?.estimated,o?.scheduledTime,o?.scheduled,o?.actualTime,o?.actual].find(Boolean) || null;
 
@@ -318,17 +344,22 @@ function toIsoUtc(isoLike){
 
     // backend normalizado -> {rows:[...]} o {ok:true,data:[...]}
     if (Array.isArray(j?.rows)) {
-  return j.rows.map(r => normRow({
-    eta: toIsoUtc(r.eta_utc || r.sta_utc || null),
-    sta: toIsoUtc(r.sta_utc || r.eta_utc || null),
-    std: toIsoUtc(r.std_utc || null),
-    id : r.flight_icao || r.flight_iata || r.flight || '—',
-    adep: r.dep_iata || r.dep_icao || '—',
-    fri: r.fri ?? null,
-    dly: fmtDelay(r.delay_min),
-    raw_sts: r.status || 'unknown'
-  }));
-}
+      return j.rows.map(r => normRow({
+        eta: toIsoUtc(r.eta_utc || r.sta_utc || null),
+        sta: toIsoUtc(r.sta_utc || r.eta_utc || null),
+        std: toIsoUtc(r.std_utc || null),
+        id : r.flight_icao || r.flight_iata || r.flight || '—',
+        adep: r.dep_iata || r.dep_icao || '—',
+        fri: r.fri ?? null,
+        dly: fmtDelay(r.delay_min),
+        raw_sts: r.status || 'unknown',
+        meta: {
+          flight_number: r.flight_number || r.flight || null,
+          flight_iata  : r.flight_iata || r.flight_number || r.flight || null,
+          flight_icao  : r.flight_icao || null
+        }
+      }));
+    }
 
     const data = Array.isArray(j?.data) ? j.data : [];
     // omitir códigos compartidos
@@ -347,6 +378,7 @@ function toIsoUtc(isoLike){
       const raw = x.status || x.flight_status || 'unknown';
 
       const meta = {
+        flight_number: fl.number || fl.iataNumber || fl.icaoNumber || null,
         flight_iata: fl.iata || fl.iataNumber || fl.number || null,
         flight_icao: fl.icaoNumber || id || null,
         callsign   : fl.icaoNumber || null,
@@ -395,6 +427,7 @@ function toIsoUtc(isoLike){
       const dly = fmtDelay(parseInt(r.delay_min ?? '0',10) || 0);
       const raw = r.status || r.RAW_STS || 'unknown';
       const meta = {
+        flight_number: r.flight_number || r.flight || null,
         flight_iata: r.flight_iata || r.flight_number || r.flight || null,
         flight_icao: preferIcao(r) || null,
         callsign   : r.callsign || r.call_sign || r.flight_icao || null,
@@ -755,11 +788,13 @@ function updateStatsCard(rows){
       const {txt:eetTxt, cls:eetCls} = deriveEET(r);
       const stash = getRMK(r);
       const sts6 = effectiveSTS6(r);
+      const fr24Id = fr24SearchId(r);
+      const fr24Url = fr24Id ? `https://www.flightradar24.com/${encodeURIComponent(fr24Id)}` : '';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="cell-eta-wrap">${fmtETA(r.ETA)}</td>
-        <td class="cell-id">${r.ID}</td>
+        <td class="cell-id">${fr24Url ? `<a href="${fr24Url}" target="_blank" rel="noopener">${r.ID}</a>` : r.ID}</td>
         <td>${r.ADEP}</td>
         <td>${friBadge(r.FRI)}</td>
         <td class="${eetCls}">${eetTxt}</td>
